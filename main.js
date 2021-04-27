@@ -114,6 +114,19 @@ for (let y = 0; y < SCREEN_HEIGHT; ++y) {
 
 uploadTex(texture, texdata);
 
+function playSound(filename) {
+  const audio = new Audio();
+  audio.src = filename;
+  audio.play();
+  return audio;
+}
+
+document.onkeydown = (event) => {
+  if (event.key == 'p') {
+    playSound('boom.mp3');
+  }
+};
+
 (function tick(time) {
   requestAnimationFrame(tick);
 

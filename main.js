@@ -102,6 +102,21 @@ function uploadTex(texture, data) {
       this.gl.UNSIGNED_BYTE, data);
 }
 
+function playSound(filename) {
+  const audio = new Audio();
+  audio.src = filename;
+  audio.play();
+  return audio;
+}
+
+function onKeyDown(event) {
+  if (event.key == 'p') {
+    playSound('boom.mp3');
+  }
+}
+
+//------------------------------------------------------------------------------
+
 initGl();
 const {buffer, texture} = makeFullScreenQuad();
 const shader = makeTextureShader();
@@ -119,18 +134,7 @@ for (let y = 0; y < SCREEN_HEIGHT; ++y) {
 
 uploadTex(texture, texdata);
 
-function playSound(filename) {
-  const audio = new Audio();
-  audio.src = filename;
-  audio.play();
-  return audio;
-}
-
-document.onkeydown = (event) => {
-  if (event.key == 'p') {
-    playSound('boom.mp3');
-  }
-};
+document.onkeydown = onKeyDown;
 
 (function tick(time) {
   requestAnimationFrame(tick);

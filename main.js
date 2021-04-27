@@ -17,7 +17,7 @@ function compileShader(type, source) {
 
 function initGl() {
   const el = document.querySelector('canvas');
-  gl = this.gl = el.getContext('webgl', {preserveDrawingBuffer: true});
+  gl = el.getContext('webgl', {preserveDrawingBuffer: true});
   if (gl === null) {
     throw new Error('unable to create webgl context');
   }
@@ -174,7 +174,7 @@ function draw(sprite, shader) {
   gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
   gl.uniform1i(shader.uSampler, 0);
 
-  this.gl.drawArrays(this.gl.TRIANGLE_STRIP, sprite.first, sprite.count);
+  gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
 
 function uploadTex(texture, data) {
@@ -215,8 +215,8 @@ document.onkeydown = onKeyDown;
 (function tick(time) {
   requestAnimationFrame(tick);
 
-  this.gl.clearColor(0, 0.1, 0.1, 1.0);
-  this.gl.clear(this.gl.COLOR_BUFFER_BIT);
+  gl.clearColor(0, 0.1, 0.1, 1.0);
+  gl.clear(gl.COLOR_BUFFER_BIT);
   draw(smiley, shader);
   draw(text, shader);
 })();

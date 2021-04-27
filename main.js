@@ -36,21 +36,20 @@ function makeTexture() {
   return texture;
 }
 
-function makeFullScreenQuad() {
-  const w = SCREEN_WIDTH / TEX_WIDTH;
-  const h = SCREEN_HEIGHT / TEX_HEIGHT;
+function makeQuad(u0, v0, u1, v1) {
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    0, 0,  0, 0,
-    0, SCREEN_HEIGHT,  0, h,
-    SCREEN_WIDTH, 0,  w, 0,
-    SCREEN_WIDTH, SCREEN_HEIGHT,  w, h,
+    -0.5, -0.5,  u0, v0,
+    -0.5, +0.5,  u0, v1,
+    +0.5, -0.5,  u1, v0,
+    +0.5, +0.5,  u1, v1,
   ]), gl.STATIC_DRAW);
 
   const texture = makeTexture();
   return {first: 0, count: 4, buffer, texture};
 }
+
 
 function makeFont() {
   const texture = makeTexture();
@@ -135,8 +134,8 @@ function makeTextureShader() {
       attribute vec2 aTexCoord;
       varying highp vec2 vTexCoord;
       void main(void) {
-        vec2 pos = vec2((aPos.x + uPos.x) * uScale.x / 240.0 - 1.0,
-                         1.0 - (aPos.y + uPos.y) * uScale.y / 135.0);
+        vec2 pos = vec2((aPos.x * uScale.x + uPos.x) / 240.0 - 1.0,
+                         1.0 - (aPos.y * uScale.y + uPos.y)  / 135.0);
         gl_Position = vec4(pos, 0.0, 1.0);
         vTexCoord = aTexCoord;
       }`);
@@ -208,9 +207,9 @@ function onKeyDown(event) {
 initGl();
 const shader = makeTextureShader();
 const font = makeFont();
-const text = makeText(font, 'hello pajama');
+const text = makeText(font, 'dance smiley');
 
-const smiley = makeFullScreenQuad();
+const smiley = makeQuad(0, 0, 226 / TEX_WIDTH, 226 / TEX_HEIGHT);
 const smileyImage = new Image();
 smileyImage.onload = async () => {
   let imgbmp = await createImageBitmap(smileyImage);
@@ -225,7 +224,10 @@ document.onkeydown = onKeyDown;
 
   gl.clearColor(0, 0.1, 0.1, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT);
-  draw(smiley, shader);
-  draw(text, shader, {x: 200 + 30 * Math.cos(timestamp * 0.005),
-                      y: 40 + 30 * Math.sin(timestamp * 0.003)});
+
+  const xoff = 30 * Math.cos(timestamp * 0.005);
+  const yoff = 30 * Math.sin(timestamp * 0.003);
+
+  draw(smiley, shader, {x: 50 + yoff, y: 50 + xoff}, {x: 32, y: 32});
+  draw(text, shader, {x: 200 + xoff, y: 40 + yoff});
 })();

@@ -23,6 +23,16 @@ function initGl() {
   }
 }
 
+function makeTexture() {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
+                gl.UNSIGNED_BYTE, null);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  return texture;
+}
+
 function makeFullScreenQuad() {
   const w = SCREEN_WIDTH / TEX_WIDTH;
   const h = SCREEN_HEIGHT / TEX_HEIGHT;
@@ -35,12 +45,7 @@ function makeFullScreenQuad() {
     +1, +1,  w, 0,
   ]), gl.STATIC_DRAW);
 
-  const texture = gl.createTexture();
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
-                gl.UNSIGNED_BYTE, null);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  const texture = makeTexture();
   return {buffer, texture};
 }
 

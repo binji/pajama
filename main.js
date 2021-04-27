@@ -3,6 +3,9 @@ const SCREEN_HEIGHT = 270;
 const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
 
+const noPos = {x: 0, y: 0};
+const noScale = {x: 1, y: 1};
+
 let gl;
 
 function compileShader(type, source) {
@@ -68,7 +71,7 @@ function makeFont() {
   return {texture, map};
 }
 
-function makeText(font, str, x, y) {
+function makeText(font, str, x = 0, y = 0) {
   const dx = 16;
   const dy = 16;
   const du = 16 / TEX_WIDTH;
@@ -126,11 +129,14 @@ function makeText(font, str, x, y) {
 
 function makeTextureShader() {
   const vertexShader = compileShader(gl.VERTEX_SHADER,
-     `attribute vec2 aPos;
+     `uniform vec2 uPos;
+      uniform vec2 uScale;
+      attribute vec2 aPos;
       attribute vec2 aTexCoord;
       varying highp vec2 vTexCoord;
       void main(void) {
-        vec2 pos = vec2(aPos.x / 240.0 - 1.0, 1.0 - aPos.y / 135.0);
+        vec2 pos = vec2((aPos.x + uPos.x) * uScale.x / 240.0 - 1.0,
+                         1.0 - (aPos.y + uPos.y) * uScale.y / 135.0);
         gl_Position = vec4(pos, 0.0, 1.0);
         vTexCoord = aTexCoord;
       }`);
@@ -157,11 +163,13 @@ function makeTextureShader() {
   const aPos = gl.getAttribLocation(program, 'aPos');
   const aTexCoord = gl.getAttribLocation(program, 'aTexCoord');
   const uSampler = gl.getUniformLocation(program, 'uSampler');
+  const uPos = gl.getUniformLocation(program, 'uPos');
+  const uScale = gl.getUniformLocation(program, 'uScale');
 
-  return {program, aPos, aTexCoord, uSampler};
+  return {program, aPos, aTexCoord, uSampler, uPos, uScale};
 }
 
-function draw(sprite, shader) {
+function draw(sprite, shader, pos = noPos, scale = noScale) {
   gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
   gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
   gl.useProgram(shader.program);
@@ -171,6 +179,8 @@ function draw(sprite, shader) {
   gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
   gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
   gl.uniform1i(shader.uSampler, 0);
+  gl.uniform2f(shader.uPos, pos.x, pos.y);
+  gl.uniform2f(shader.uScale, scale.x, scale.y);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
@@ -198,7 +208,7 @@ function onKeyDown(event) {
 initGl();
 const shader = makeTextureShader();
 const font = makeFont();
-const text = makeText(font, 'hello pajama', 190, 16);
+const text = makeText(font, 'hello pajama');
 
 const smiley = makeFullScreenQuad();
 const smileyImage = new Image();
@@ -210,11 +220,12 @@ smileyImage.src = 'smiley.png';
 
 document.onkeydown = onKeyDown;
 
-(function tick(time) {
+(function tick(timestamp) {
   requestAnimationFrame(tick);
 
   gl.clearColor(0, 0.1, 0.1, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT);
   draw(smiley, shader);
-  draw(text, shader);
+  draw(text, shader, {x: 200 + 30 * Math.cos(timestamp * 0.005),
+                      y: 40 + 30 * Math.sin(timestamp * 0.003)});
 })();

@@ -97,9 +97,7 @@ function draw(buffer, texture, shader) {
 
 function uploadTex(texture, data) {
   gl.bindTexture(gl.TEXTURE_2D, texture);
-  this.gl.texSubImage2D(
-      this.gl.TEXTURE_2D, 0, 0, 0, SCREEN_WIDTH, SCREEN_HEIGHT, this.gl.RGBA,
-      this.gl.UNSIGNED_BYTE, data);
+  gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
 }
 
 function playSound(filename) {
@@ -121,18 +119,12 @@ initGl();
 const {buffer, texture} = makeFullScreenQuad();
 const shader = makeTextureShader();
 
-const texdata = new Uint8Array(SCREEN_WIDTH * SCREEN_HEIGHT * 4);
-
-for (let y = 0; y < SCREEN_HEIGHT; ++y) {
-  for (let x = 0; x < SCREEN_WIDTH; ++x) {
-    texdata[(y * SCREEN_WIDTH + x) * 4] = x / SCREEN_WIDTH * 256;
-    texdata[(y * SCREEN_WIDTH + x) * 4 + 1] = y / SCREEN_HEIGHT * 256;
-    texdata[(y * SCREEN_WIDTH + x) * 4 + 2] = 0;
-    texdata[(y * SCREEN_WIDTH + x) * 4 + 3] = 255;
-  }
-}
-
-uploadTex(texture, texdata);
+const img = new Image();
+img.onload = async () => {
+  let imgbmp = await createImageBitmap(img);
+  uploadTex(texture, imgbmp);
+};
+img.src = 'font.png';
 
 document.onkeydown = onKeyDown;
 

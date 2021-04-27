@@ -46,7 +46,85 @@ function makeFullScreenQuad() {
   ]), gl.STATIC_DRAW);
 
   const texture = makeTexture();
-  return {buffer, texture};
+  return {first: 0, count: 4, buffer, texture};
+}
+
+function makeFont() {
+  const texture = makeTexture();
+  const img = new Image();
+  img.onload = async () => {
+    let imgbmp = await createImageBitmap(img);
+    uploadTex(texture, imgbmp);
+  };
+  img.src = 'font.png';
+
+  let map = {};
+  for (let i = 0x21; i < 0x7e; ++i) {
+    const chr = String.fromCharCode(i);
+    const u = ((i - 0x21) % 32) * 16 / TEX_WIDTH;
+    const v = Math.floor((i - 0x21) / 32) * 16 / TEX_HEIGHT;
+    map[i] = {u, v};
+  }
+  return {texture, map};
+}
+
+function makeText(font, str, x, y) {
+  const dx = 32 / SCREEN_WIDTH;
+  const dy = 32 / SCREEN_HEIGHT;
+  const du = 16 / TEX_WIDTH;
+  const dv = 16 / TEX_HEIGHT;
+
+  x = 2 * x / SCREEN_WIDTH - 1;
+  y = 1 - 2 * y / SCREEN_HEIGHT - dy;
+
+  const buffer = gl.createBuffer();
+  const count = str.length * 6;
+  const data = new Float32Array(count * 4);
+
+  for (let i = 0; i < str.length; ++i) {
+    const chr = str.charCodeAt(i);
+    if (chr != 32) {
+      const {u, v} = font.map[chr];
+
+      data[i * 6 * 4 + 0] = x;      // BL x
+      data[i * 6 * 4 + 1] = y + dy; // BL y
+      data[i * 6 * 4 + 2] = u;      // BL u
+      data[i * 6 * 4 + 3] = v;      // BL v
+
+      data[i * 6 * 4 + 4] = x + dx; // BR x
+      data[i * 6 * 4 + 5] = y + dy; // BR y
+      data[i * 6 * 4 + 6] = u + du; // BR u
+      data[i * 6 * 4 + 7] = v;      // BR v
+
+      data[i * 6 * 4 + 8] = x;       // TL x
+      data[i * 6 * 4 + 9] = y;       // TL y
+      data[i * 6 * 4 + 10] = u;      // TL u
+      data[i * 6 * 4 + 11] = v + dv; // TL v
+
+      data[i * 6 * 4 + 12] = x + dx; // TR x
+      data[i * 6 * 4 + 13] = y;      // TR y
+      data[i * 6 * 4 + 14] = u + du; // TR u
+      data[i * 6 * 4 + 15] = v + dv; // TR v
+    }
+
+    // degenerate tris
+    data[i * 6 * 4 + 16] = x + dx; // TR x
+    data[i * 6 * 4 + 17] = y;      // TR y
+    data[i * 6 * 4 + 18] = 0;      // TR u
+    data[i * 6 * 4 + 19] = 0;      // TR v
+
+    data[i * 6 * 4 + 20] = x + dx; // next BL x
+    data[i * 6 * 4 + 21] = y + dy; // next BL y
+    data[i * 6 * 4 + 22] = 0;      // next BL u
+    data[i * 6 * 4 + 23] = 0;      // next BL v
+
+    x += dx;
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+  return {first: 0, count, buffer, texture: font.texture};
 }
 
 function makeTextureShader() {
@@ -82,12 +160,7 @@ function makeTextureShader() {
   const aTexCoord = gl.getAttribLocation(program, 'aTexCoord');
   const uSampler = gl.getUniformLocation(program, 'uSampler');
 
-  gl.enableVertexAttribArray(aPos);
-  gl.enableVertexAttribArray(aTexCoord);
-  gl.vertexAttribPointer(aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
-  gl.vertexAttribPointer(aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
-
-  return {program, uSampler};
+  return {program, aPos, aTexCoord, uSampler};
 }
 
 function draw(sprite, shader) {
@@ -95,9 +168,13 @@ function draw(sprite, shader) {
   gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
   gl.useProgram(shader.program);
 
+  gl.enableVertexAttribArray(shader.aPos);
+  gl.enableVertexAttribArray(shader.aTexCoord);
+  gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
+  gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
   gl.uniform1i(shader.uSampler, 0);
 
-  this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+  this.gl.drawArrays(this.gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
 
 function uploadTex(texture, data) {
@@ -121,15 +198,9 @@ function onKeyDown(event) {
 //------------------------------------------------------------------------------
 
 initGl();
-const fullScreen = makeFullScreenQuad();
 const shader = makeTextureShader();
-
-const img = new Image();
-img.onload = async () => {
-  let imgbmp = await createImageBitmap(img);
-  uploadTex(fullScreen.texture, imgbmp);
-};
-img.src = 'font.png';
+const font = makeFont();
+const text = makeText(font, 'hello pajama', 190, 16);
 
 const smiley = makeFullScreenQuad();
 const smileyImage = new Image();
@@ -146,6 +217,6 @@ document.onkeydown = onKeyDown;
 
   this.gl.clearColor(0, 0.1, 0.1, 1.0);
   this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-  draw(fullScreen, shader);
   draw(smiley, shader);
+  draw(text, shader);
 })();

@@ -59,10 +59,15 @@ function makeTextureShader() {
         vTexCoord = aTexCoord;
       }`);
   const fragmentShader = compileShader(gl.FRAGMENT_SHADER,
-     `varying highp vec2 vTexCoord;
+     `precision highp float;
+      varying vec2 vTexCoord;
       uniform sampler2D uSampler;
       void main(void) {
-        gl_FragColor = texture2D(uSampler, vTexCoord);
+        vec4 tex = texture2D(uSampler, vTexCoord);
+        if (tex.xyz == vec3(1, 0, 1)) {
+          discard;
+        }
+        gl_FragColor = tex;
       }`);
 
   const program = gl.createProgram();
@@ -85,9 +90,9 @@ function makeTextureShader() {
   return {program, uSampler};
 }
 
-function draw(buffer, texture, shader) {
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
+function draw(sprite, shader) {
+  gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
+  gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
   gl.useProgram(shader.program);
 
   gl.uniform1i(shader.uSampler, 0);
@@ -116,22 +121,31 @@ function onKeyDown(event) {
 //------------------------------------------------------------------------------
 
 initGl();
-const {buffer, texture} = makeFullScreenQuad();
+const fullScreen = makeFullScreenQuad();
 const shader = makeTextureShader();
 
 const img = new Image();
 img.onload = async () => {
   let imgbmp = await createImageBitmap(img);
-  uploadTex(texture, imgbmp);
+  uploadTex(fullScreen.texture, imgbmp);
 };
 img.src = 'font.png';
+
+const smiley = makeFullScreenQuad();
+const smileyImage = new Image();
+smileyImage.onload = async () => {
+  let imgbmp = await createImageBitmap(smileyImage);
+  uploadTex(smiley.texture, imgbmp);
+};
+smileyImage.src = 'smiley.png';
 
 document.onkeydown = onKeyDown;
 
 (function tick(time) {
   requestAnimationFrame(tick);
 
-  this.gl.clearColor(0, 0, 0, 1.0);
+  this.gl.clearColor(0, 0.1, 0.1, 1.0);
   this.gl.clear(this.gl.COLOR_BUFFER_BIT);
-  draw(buffer, texture, shader);
+  draw(fullScreen, shader);
+  draw(smiley, shader);
 })();

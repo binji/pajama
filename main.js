@@ -292,7 +292,7 @@ function playSound(asset) {
 const accel = 0.55;
 const drag = 0.85;
 const maxvel = 3;
-let smilepos = {x: 30, y: 30};
+let smilepos = {x: 300, y: 300};
 let ddsmile = {x: 0, y: 0};
 let dsmile = {x: 0, y: 0};
 
@@ -342,7 +342,6 @@ function loadLevel() {
   level.data = assets.level.data;
   level.sprite = {};
 
-  if (level.data.layers.length != 1) { throw 'no'; }
   if (level.data.tilesets.length != 1) { throw 'no'; }
 
   // preprocess tileset data for ease of lookup later
@@ -360,32 +359,43 @@ function loadLevel() {
   level.sprite.texture = makeTexture(assets.tiles);
 
   // generate render buffer
-  const layer = level.data.layers[0];
-  level.sprite.buffer = gl.createBuffer();
   level.sprite.first = 0;
-  const maxcount = layer.width * layer.height * 6;
-  const data = new Float32Array(maxcount * 4);
-
-  const du = tileset.tilewidth / tileset.imagewidth;
-  const dv = tileset.tileheight / tileset.imageheight;
-  const dx = 48;
-  const dy = 48;
-  let x = 0;
-  let y = 0;
-  let p = 0;
-  for (let i = 0; i < layer.data.length; ++i) {
-    let gid = layer.data[i];
-    if (gid != 0) {
-      const x = (i % layer.width) * dx;
-      const y = Math.floor(i / layer.width) * dy;
-      const {u, v} = level.tiles[gid];
-      setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
-      p++;
+  level.sprite.count = 0;
+  level.width = 0;
+  level.height = 0;
+  for (let layer of level.data.layers) {
+    level.width = Math.max(level.width, layer.width) * tileset.tilewidth;
+    level.height = Math.max(level.height, layer.height) * tileset.tileheight;
+    for (let tile of layer.data) {
+      if (tile != 0) {
+        level.sprite.count += 6;
+      }
     }
   }
-  level.sprite.count = p * 6;
-  level.width = layer.width * tileset.tilewidth;
-  level.height = layer.height * tileset.tileheight;
+
+  level.sprite.buffer = gl.createBuffer();
+
+  const dx = 48;
+  const dy = 48;
+  const du = tileset.tilewidth / tileset.imagewidth;
+  const dv = tileset.tileheight / tileset.imageheight;
+  const data = new Float32Array(level.sprite.count * 4);
+  let p = 0;
+
+  for (let layer of level.data.layers) {
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < layer.data.length; ++i) {
+      let gid = layer.data[i];
+      if (gid != 0) {
+        const x = (i % layer.width) * dx;
+        const y = Math.floor(i / layer.width) * dy;
+        const {u, v} = level.tiles[gid];
+        setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
+        p++;
+      }
+    }
+  }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -420,7 +430,7 @@ async function start() {
 
   const updateMs = 16.6;
   let lastTimestamp;
-  let updateRemainder = 0;
+  let updateRemainder = updateMs + 1;
   function tick(timestamp) {
     requestAnimationFrame(tick);
 

@@ -135,12 +135,13 @@ function makeTextureShader() {
   const vertexShader = compileShader(gl.VERTEX_SHADER,
      `uniform vec2 uPos;
       uniform vec2 uScale;
+      uniform vec2 uCamera;
       attribute vec2 aPos;
       attribute vec2 aTexCoord;
       varying highp vec2 vTexCoord;
       void main(void) {
-        vec2 pos = vec2((aPos.x * uScale.x + uPos.x) / 240.0 - 1.0,
-                         1.0 - (aPos.y * uScale.y + uPos.y)  / 135.0);
+        vec2 pos = vec2((aPos.x * uScale.x + uPos.x - uCamera.x) / 240.0 - 1.0,
+                         1.0 - (aPos.y * uScale.y + uPos.y - uCamera.y)  / 135.0);
         gl_Position = vec4(pos, 0.0, 1.0);
         vTexCoord = aTexCoord;
       }`);
@@ -169,8 +170,9 @@ function makeTextureShader() {
   const uSampler = gl.getUniformLocation(program, 'uSampler');
   const uPos = gl.getUniformLocation(program, 'uPos');
   const uScale = gl.getUniformLocation(program, 'uScale');
+  const uCamera = gl.getUniformLocation(program, 'uCamera');
 
-  return {program, aPos, aTexCoord, uSampler, uPos, uScale};
+  return {program, aPos, aTexCoord, uSampler, uPos, uScale, uCamera};
 }
 
 function draw(sprite, shader, pos = noPos, scale = noScale) {
@@ -187,6 +189,7 @@ function draw(sprite, shader, pos = noPos, scale = noScale) {
   gl.uniform1i(shader.uSampler, 0);
   gl.uniform2f(shader.uPos, pos.x, pos.y);
   gl.uniform2f(shader.uScale, scale.x, scale.y);
+  gl.uniform2f(shader.uCamera, cam.x, cam.y);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
@@ -267,6 +270,8 @@ let level = {
   data : null,
   tiles : {},
   sprite : null,
+  width: 0,
+  height: 0,
 };
 async function loadLevel() {
   const response = await fetch('testing.json');
@@ -277,18 +282,17 @@ async function loadLevel() {
   if (level.data.tilesets.length != 1) { throw 'no'; }
 
   // preprocess tileset data for ease of lookup later
-  for (let tileset of level.data.tilesets) {
-    const du = tileset.tilewidth / tileset.imagewidth;
-    const dv = tileset.tileheight / tileset.imageheight;
+  let tileset = level.data.tilesets[0];
+  const du = tileset.tilewidth / tileset.imagewidth;
+  const dv = tileset.tileheight / tileset.imageheight;
 
-    for (let gid = 1; gid < tileset.tilecount + 1; ++gid) {
-      const u = ((gid - 1) % tileset.columns) * du;
-      const v = (Math.floor((gid - 1) / tileset.columns)) * dv;
-      level.tiles[gid] = {u, v};
-    }
-    level.sprite.texture = makeTexture();
-    await loadTexture(tileset.image, level.sprite.texture);
+  for (let gid = 1; gid < tileset.tilecount + 1; ++gid) {
+    const u = ((gid - 1) % tileset.columns) * du;
+    const v = (Math.floor((gid - 1) / tileset.columns)) * dv;
+    level.tiles[gid] = {u, v};
   }
+  level.sprite.texture = makeTexture();
+  await loadTexture(tileset.image, level.sprite.texture);
 
   // generate render buffer
   const layer = level.data.layers[0];
@@ -299,8 +303,6 @@ async function loadLevel() {
 
   const dx = 48;
   const dy = 48;
-  const du = 48 / TEX_WIDTH;
-  const dv = 48 / TEX_HEIGHT;
   let x = 0;
   let y = 0;
   let p = 0;
@@ -315,6 +317,8 @@ async function loadLevel() {
     }
   }
   level.sprite.count = p * 6;
+  level.width = layer.width * tileset.tilewidth;
+  level.height = layer.height * tileset.tileheight;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
   gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
@@ -325,7 +329,7 @@ async function loadLevel() {
 initGl();
 const shader = makeTextureShader();
 const font = makeFont();
-const text = makeText(font, 'Multi Tile Level');
+const text = makeText(font, 'cameras');
 
 const smiley = loadSprite('smiley.png', 226, 226);
 
@@ -333,6 +337,10 @@ document.onkeydown = onKeyDown;
 document.onkeyup = onKeyUp;
 
 loadLevel();
+
+let camUI = {x: 0, y: 0};
+let camGame = {x: 0, y: 0};
+let cam;
 
 const updateMs = 16.6;
 let lastTimestamp;
@@ -354,10 +362,16 @@ function tick(timestamp) {
     dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
     smilepos.x += dsmile.x;
     smilepos.y += dsmile.y;
+
+    camGame.x = clamp(0, smilepos.x - SCREEN_WIDTH * 0.5, level.width - SCREEN_WIDTH);
+    camGame.y = clamp(0, smilepos.y - SCREEN_HEIGHT * 0.5, level.height - SCREEN_HEIGHT);
   }
 
-  draw(level.sprite, shader, {x:32, y:32}, {x: 0.25, y: 0.25});
-  draw(smiley, shader, smilepos, {x: 12, y: 12});
+  cam = camGame;
+  draw(level.sprite, shader);
+  draw(smiley, shader, smilepos, {x: 48, y: 48});
+
+  cam = camUI;
   draw(text, shader, {x: 10, y: 10});
 }
 requestAnimationFrame(tick);

@@ -5,6 +5,7 @@ const TEX_HEIGHT = 512;
 
 const noPos = {x: 0, y: 0};
 const noScale = {x: 1, y: 1};
+const id3x3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
 
 let gl;
 
@@ -40,20 +41,38 @@ function makeTexture() {
   return texture;
 }
 
-function makeQuad(u0, v0, u1, v1) {
+function makeQuad(texture) {
   const buffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -0.5, -0.5,  u0, v0,
-    -0.5, +0.5,  u0, v1,
-    +0.5, -0.5,  u1, v0,
-    +0.5, +0.5,  u1, v1,
+    -0.5, -0.5,  0, 0,
+    -0.5, +0.5,  0, 1,
+    +0.5, -0.5,  1, 0,
+    +0.5, +0.5,  1, 1,
   ]), gl.STATIC_DRAW);
 
-  const texture = makeTexture();
   return {first: 0, count: 4, buffer, texture};
 }
 
+function getSpriteTexPos(index) {
+  const margin = 1;
+  const spacing = 2;
+  const tileSize = 48;
+  const columns = 10;
+
+  return {
+    x: ((index % columns) * (tileSize + spacing) + margin) / TEX_WIDTH,
+    y: (Math.floor(index / columns) * (tileSize + spacing) + margin) / TEX_HEIGHT
+  };
+}
+
+function makeTexMat3x3(texPos, w, h) {
+  return new Float32Array([
+    w / TEX_WIDTH, 0, 0,
+    0, h / TEX_HEIGHT, 0,
+    texPos.x, texPos.y, 0,
+  ]);
+}
 
 function makeFont() {
   const texture = makeTexture();
@@ -136,14 +155,17 @@ function makeTextureShader() {
      `uniform vec2 uPos;
       uniform vec2 uScale;
       uniform vec2 uCamera;
+      uniform mat3 uTexMat;
+
       attribute vec2 aPos;
       attribute vec2 aTexCoord;
       varying highp vec2 vTexCoord;
+
       void main(void) {
         vec2 pos = vec2((aPos.x * uScale.x + uPos.x - uCamera.x) / 240.0 - 1.0,
                          1.0 - (aPos.y * uScale.y + uPos.y - uCamera.y)  / 135.0);
         gl_Position = vec4(pos, 0.0, 1.0);
-        vTexCoord = aTexCoord;
+        vTexCoord = (uTexMat * vec3(aTexCoord, 1)).xy;
       }`);
   const fragmentShader = compileShader(gl.FRAGMENT_SHADER,
      `precision highp float;
@@ -171,11 +193,12 @@ function makeTextureShader() {
   const uPos = gl.getUniformLocation(program, 'uPos');
   const uScale = gl.getUniformLocation(program, 'uScale');
   const uCamera = gl.getUniformLocation(program, 'uCamera');
+  const uTexMat = gl.getUniformLocation(program, 'uTexMat');
 
-  return {program, aPos, aTexCoord, uSampler, uPos, uScale, uCamera};
+  return {program, aPos, aTexCoord, uSampler, uPos, uScale, uCamera, uTexMat};
 }
 
-function draw(sprite, shader, pos = noPos, scale = noScale) {
+function draw(sprite, shader, pos = noPos, scale = noScale, texMat = id3x3) {
   if (!sprite) return;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
@@ -190,6 +213,7 @@ function draw(sprite, shader, pos = noPos, scale = noScale) {
   gl.uniform2f(shader.uPos, pos.x, pos.y);
   gl.uniform2f(shader.uScale, scale.x, scale.y);
   gl.uniform2f(shader.uCamera, cam.x, cam.y);
+  gl.uniformMatrix3fv(shader.uTexMat, false, texMat);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
@@ -260,12 +284,6 @@ function loadTexture(filename, texture) {
   });
 }
 
-function loadSprite(filename, w, h) {
-  const sprite = makeQuad(0, 0, w / TEX_WIDTH, h / TEX_HEIGHT);
-  loadTexture(filename, sprite.texture);
-  return sprite;
-}
-
 let level = {
   data : null,
   tiles : {},
@@ -333,9 +351,13 @@ async function loadLevel() {
 initGl();
 const shader = makeTextureShader();
 const font = makeFont();
-const text = makeText(font, 'cameras');
+const text = makeText(font, 'blink smiley');
+const spriteTexture = makeTexture();
+loadTexture('sprites.png', spriteTexture);
+const quad = makeQuad(spriteTexture);
 
-const smiley = loadSprite('smiley.png', 226, 226);
+const smiley = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
+const smileyBlink = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
 
 document.onkeydown = onKeyDown;
 document.onkeyup = onKeyUp;
@@ -373,7 +395,9 @@ function tick(timestamp) {
 
   cam = camGame;
   draw(level.sprite, shader);
-  draw(smiley, shader, smilepos, {x: 48, y: 48});
+
+  draw(quad, shader, smilepos, {x: 48, y: 48},
+       Math.random() < 0.01 ? smileyBlink : smiley);
 
   cam = camUI;
   draw(text, shader, {x: 10, y: 10});

@@ -8,6 +8,10 @@ const noScale = {x: 1, y: 1};
 
 let gl;
 
+function clamp(min, x, max) {
+  return Math.min(Math.max(x, min), max);
+}
+
 function compileShader(type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
@@ -196,9 +200,45 @@ function playSound(filename) {
   return audio;
 }
 
+const accel = 0.55;
+const drag = 0.85;
+const maxvel = 3;
+let smilepos = {x: 30, y: 30};
+let ddsmile = {x: 0, y: 0};
+let dsmile = {x: 0, y: 0};
+
 function onKeyDown(event) {
-  if (event.key == 'p') {
-    playSound('boom.mp3');
+  switch (event.key) {
+    case 'p':
+      playSound('boom.mp3');
+      break;
+
+    case 'ArrowLeft':
+      ddsmile.x = -accel;
+      break;
+    case 'ArrowRight':
+      ddsmile.x = +accel;
+      break;
+    case 'ArrowUp':
+      ddsmile.y = -accel;
+      break;
+    case 'ArrowDown':
+      ddsmile.y = +accel;
+      break;
+  }
+}
+
+function onKeyUp(event) {
+  switch (event.key) {
+    case 'ArrowLeft':
+    case 'ArrowRight':
+      ddsmile.x = 0;
+      break;
+
+    case 'ArrowUp':
+    case 'ArrowDown':
+      ddsmile.y = 0;
+      break;
   }
 }
 
@@ -218,16 +258,31 @@ smileyImage.onload = async () => {
 smileyImage.src = 'smiley.png';
 
 document.onkeydown = onKeyDown;
+document.onkeyup = onKeyUp;
 
-(function tick(timestamp) {
+const updateMs = 16.6;
+let lastTimestamp;
+let updateRemainder = 0;
+function tick(timestamp) {
   requestAnimationFrame(tick);
+
+  if (lastTimestamp === undefined) { lastTimestamp = timestamp; }
+  let elapsed = timestamp - lastTimestamp;
+  lastTimestamp = timestamp;
 
   gl.clearColor(0, 0.1, 0.1, 1.0);
   gl.clear(gl.COLOR_BUFFER_BIT);
 
-  const xoff = 30 * Math.cos(timestamp * 0.005);
-  const yoff = 30 * Math.sin(timestamp * 0.003);
+  updateRemainder += elapsed;
+  while (updateRemainder > updateMs) {
+    updateRemainder -= updateMs;
+    dsmile.x = clamp(-maxvel, (dsmile.x + ddsmile.x) * drag, maxvel);
+    dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
+    smilepos.x += dsmile.x;
+    smilepos.y += dsmile.y;
+  }
 
-  draw(smiley, shader, {x: 50 + yoff, y: 50 + xoff}, {x: 32, y: 32});
-  draw(text, shader, {x: 200 + xoff, y: 40 + yoff});
-})();
+  draw(smiley, shader, smilepos, {x: 48, y: 48});
+  draw(text, shader, {x: 10, y: 10});
+};
+requestAnimationFrame(tick);

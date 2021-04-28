@@ -74,6 +74,38 @@ function makeFont() {
   return {texture, map};
 }
 
+function setTileCoord(data, i, x, y, u, v, dx, dy, du, dv) {
+  data[i * 6 * 4 + 0] = x; // TL x
+  data[i * 6 * 4 + 1] = y; // TL y
+  data[i * 6 * 4 + 2] = u; // TL u
+  data[i * 6 * 4 + 3] = v; // TL v
+
+  data[i * 6 * 4 + 4] = x; // TL x
+  data[i * 6 * 4 + 5] = y; // TL y
+  data[i * 6 * 4 + 6] = u; // TL u
+  data[i * 6 * 4 + 7] = v; // TL v
+
+  data[i * 6 * 4 + 8] = x;      // BL x
+  data[i * 6 * 4 + 9] = y + dy; // BL y
+  data[i * 6 * 4 + 10] = u;      // BL u
+  data[i * 6 * 4 + 11] = v + dv; // BL v
+
+  data[i * 6 * 4 + 12] = x + dx;  // TR x
+  data[i * 6 * 4 + 13] = y;       // TR y
+  data[i * 6 * 4 + 14] = u + du; // TR u
+  data[i * 6 * 4 + 15] = v;      // TR v
+
+  data[i * 6 * 4 + 16] = x + dx; // BR x
+  data[i * 6 * 4 + 17] = y + dy; // BR y
+  data[i * 6 * 4 + 18] = u + du; // BR u
+  data[i * 6 * 4 + 19] = v + dv; // BR v
+
+  data[i * 6 * 4 + 20] = x + dx; // BR x
+  data[i * 6 * 4 + 21] = y + dy; // BR y
+  data[i * 6 * 4 + 22] = u + du; // BR u
+  data[i * 6 * 4 + 23] = v + dv; // BR v
+}
+
 function makeText(font, str, x = 0, y = 0) {
   const dx = 16;
   const dy = 16;
@@ -88,39 +120,8 @@ function makeText(font, str, x = 0, y = 0) {
     const chr = str.charCodeAt(i);
     if (chr != 32) {
       const {u, v} = font.map[chr];
-
-      data[i * 6 * 4 + 0] = x; // TL x
-      data[i * 6 * 4 + 1] = y; // TL y
-      data[i * 6 * 4 + 2] = u; // TL u
-      data[i * 6 * 4 + 3] = v; // TL v
-
-      data[i * 6 * 4 + 4] = x;      // BL x
-      data[i * 6 * 4 + 5] = y + dy; // BL y
-      data[i * 6 * 4 + 6] = u;      // BL u
-      data[i * 6 * 4 + 7] = v + dv; // BL v
-
-      data[i * 6 * 4 + 8] = x + dx;  // TR x
-      data[i * 6 * 4 + 9] = y;       // TR y
-      data[i * 6 * 4 + 10] = u + du; // TR u
-      data[i * 6 * 4 + 11] = v;      // TR v
-
-      data[i * 6 * 4 + 12] = x + dx; // BR x
-      data[i * 6 * 4 + 13] = y + dy; // BR y
-      data[i * 6 * 4 + 14] = u + du; // BR u
-      data[i * 6 * 4 + 15] = v + dv; // BR v
+      setTileCoord(data, i, x, y, u, v, dx, dy, du, dv);
     }
-
-    // degenerate tris
-    data[i * 6 * 4 + 16] = x + dx; // BR x
-    data[i * 6 * 4 + 17] = y + dy; // BR y
-    data[i * 6 * 4 + 18] = 0;      // BR u
-    data[i * 6 * 4 + 19] = 0;      // BR v
-
-    data[i * 6 * 4 + 20] = x + dx; // next TL x
-    data[i * 6 * 4 + 21] = y;      // next TL y
-    data[i * 6 * 4 + 22] = 0;      // next TL u
-    data[i * 6 * 4 + 23] = 0;      // next TL v
-
     x += dx;
   }
 
@@ -173,6 +174,8 @@ function makeTextureShader() {
 }
 
 function draw(sprite, shader, pos = noPos, scale = noScale) {
+  if (!sprite) return;
+
   gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
   gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
   gl.useProgram(shader.program);
@@ -242,54 +245,79 @@ function onKeyUp(event) {
   }
 }
 
+function loadTexture(filename, texture) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = async () => {
+      let imgbmp = await createImageBitmap(image);
+      uploadTex(texture, imgbmp);
+      resolve(texture);
+    };
+    image.src = filename;
+  });
+}
+
 function loadSprite(filename, w, h) {
   const sprite = makeQuad(0, 0, w / TEX_WIDTH, h / TEX_HEIGHT);
-  const image = new Image();
-  image.onload = async () => {
-    let imgbmp = await createImageBitmap(image);
-    uploadTex(sprite.texture, imgbmp);
-  };
-  image.src = filename;
+  loadTexture(filename, sprite.texture);
   return sprite;
 }
 
-let level = { data: null, tiles: {} };
+let level = {
+  data : null,
+  tiles : {},
+  sprite : null,
+};
 async function loadLevel() {
   const response = await fetch('testing.json');
-  const data = await response.json();
-  level.data = data;
+  level.data = await response.json();;
+  level.sprite = {};
+
+  if (level.data.layers.length != 1) { throw 'no'; }
+  if (level.data.tilesets.length != 1) { throw 'no'; }
 
   // preprocess tileset data for ease of lookup later
   for (let tileset of level.data.tilesets) {
-    for (let tile of tileset.tiles) {
-      const gid = tileset.firstgid + tile.id;
-      level.tiles[gid] = {
-        sprite: loadSprite(tile.image, tile.imageheight, tile.imagewidth),
-      };
-    }
-  }
-}
+    const du = tileset.tilewidth / tileset.imagewidth;
+    const dv = tileset.tileheight / tileset.imageheight;
 
-function drawLevel() {
-  if (!level.data) {
-    return;
+    for (let gid = 1; gid < tileset.tilecount + 1; ++gid) {
+      const u = ((gid - 1) % tileset.columns) * du;
+      const v = (Math.floor((gid - 1) / tileset.columns)) * dv;
+      level.tiles[gid] = {u, v};
+    }
+    level.sprite.texture = makeTexture();
+    await loadTexture(tileset.image, level.sprite.texture);
   }
 
-  // scaled down 0.25 so it all shows up
-  const size = {x: 0.25*level.data.tilewidth, y: 0.25*level.data.tileheight};
-  for (let layer of level.data.layers) {
-    for (let i = 0; i < layer.data.length; ++i) {
-      let gid = layer.data[i];
-      if (gid === 0) {
-        // 0 GID is empty, don't try to draw it
-        continue;
-      }
-      const x = size.x * (i % layer.width);
-      const y = size.y * Math.floor(i / layer.width);
-      const tile = level.tiles[gid];
-      draw(tile.sprite, shader, {x, y}, size);
+  // generate render buffer
+  const layer = level.data.layers[0];
+  level.sprite.buffer = gl.createBuffer();
+  level.sprite.first = 0;
+  const maxcount = layer.width * layer.height * 6;
+  const data = new Float32Array(maxcount * 4);
+
+  const dx = 48;
+  const dy = 48;
+  const du = 48 / TEX_WIDTH;
+  const dv = 48 / TEX_HEIGHT;
+  let x = 0;
+  let y = 0;
+  let p = 0;
+  for (let i = 0; i < layer.data.length; ++i) {
+    let gid = layer.data[i];
+    if (gid != 0) {
+      const x = (i % layer.width) * dx;
+      const y = Math.floor(i / layer.width) * dy;
+      const {u, v} = level.tiles[gid];
+      setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
+      p++;
     }
   }
+  level.sprite.count = p * 6;
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 }
 
 //------------------------------------------------------------------------------
@@ -297,7 +325,7 @@ function drawLevel() {
 initGl();
 const shader = makeTextureShader();
 const font = makeFont();
-const text = makeText(font, 'dance smiley');
+const text = makeText(font, 'Multi Tile Level');
 
 const smiley = loadSprite('smiley.png', 226, 226);
 
@@ -328,9 +356,8 @@ function tick(timestamp) {
     smilepos.y += dsmile.y;
   }
 
-  drawLevel();
-
-  draw(smiley, shader, smilepos, {x: 48, y: 48});
+  draw(level.sprite, shader, {x:32, y:32}, {x: 0.25, y: 0.25});
+  draw(smiley, shader, smilepos, {x: 12, y: 12});
   draw(text, shader, {x: 10, y: 10});
 }
 requestAnimationFrame(tick);

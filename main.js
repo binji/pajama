@@ -333,3 +333,4 @@ function tick(timestamp) {
   draw(smiley, shader, smilepos, {x: 48, y: 48});
   draw(text, shader, {x: 10, y: 10});
 }
+requestAnimationFrame(tick);

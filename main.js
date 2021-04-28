@@ -402,6 +402,81 @@ function loadLevel() {
 }
 
 //------------------------------------------------------------------------------
+// Collision detection
+// see https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
+
+function dist2(v0x, v0y, v1x, v1y) {
+  return (v0x - v1x) * (v0x - v1x) + (v0y - v1y) * (v0y - v1y);
+}
+
+function distToLineSegment2(px, py, v0x, v0y, v1x, v1y) {
+  let l2 = dist2(v0x, v0y, v1x, v1y);
+  if (l2 == 0) { throw 'no'; }
+  let t = clamp(0, ((px - v0x) * (v1x - v0x) + (py - v0y) * (v1y - v0y)) / l2, 1);
+  let ix = v0x + t * (v1x - v0x);
+  let iy = v0y + t * (v1y - v0y);
+  return {dist2: dist2(px, py, ix, iy), ix, iy};
+}
+
+function smileyCollision() {
+  const boxSegs = [
+    {x0: 0, y0: 0, x1: 48, y1: 0},  // top
+    {x0: 0, y0: 0, x1: 0, y1: 48},  // left
+    {x0: 0, y0: 48, x1: 48, y1: 48},  // bottom
+    {x0: 48, y0: 0, x1: 48, y1: 48},  // right
+  ];
+  const dirs = [
+    {x: -1, y: -1},
+    {x: -1, y:  0},
+    {x: -1, y: +1},
+    {x:  0, y: -1},
+    {x:  0, y: +1},
+    {x: +1, y: -1},
+    {x: +1, y:  0},
+    {x: +1, y: +1},
+  ];
+  let px = smilepos.x;
+  let py = smilepos.y;
+  let rad = 22; // a little less than tile width / 2
+  let rad2 = rad * rad;
+  let tx = Math.floor(px / 48);
+  let ty = Math.floor(py / 48);
+  let layer = assets.level.data.layers[1];
+
+  function getCell(x, y) {
+    if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) { return 0; }
+    return layer.data[y * layer.width + x];
+  }
+
+  for (let dir of dirs) {
+    let tile = getCell(tx + dir.x, ty + dir.y);
+    if (!tile) continue;
+
+    for (let seg of boxSegs) {
+      let left = (tx + dir.x) * 48;
+      let top = (ty + dir.y) * 48;
+      let {dist2, ix, iy} = distToLineSegment2(
+        px, py,
+        seg.x0 + left, seg.y0 + top,
+        seg.x1 + left, seg.y1 + top
+      );
+
+      if (dist2 < rad2) {
+        // push away along vec between object and segment.
+        let dist = Math.sqrt(dist2);
+        let pushx = (rad - dist) * (px - ix) / dist;
+        let pushy = (rad - dist) * (py - iy) / dist;
+        px += pushx;
+        py += pushy;
+      }
+    }
+  }
+
+  smilepos.x = px;
+  smilepos.y = py;
+}
+
+//------------------------------------------------------------------------------
 
 let cam;
 let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
@@ -448,6 +523,8 @@ async function start() {
       dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
       smilepos.x += dsmile.x;
       smilepos.y += dsmile.y;
+
+      smileyCollision();
 
       if (smilepos.x - camGame.x < camPushBox.l) {
         camGame.x = Math.max(0, smilepos.x - camPushBox.l);

@@ -394,6 +394,8 @@ function loadLevel() {
 //------------------------------------------------------------------------------
 
 let cam;
+let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
+                  t:SCREEN_HEIGHT * 0.35, b:SCREEN_HEIGHT * 0.65};
 
 async function start() {
   await loadAssets();
@@ -437,8 +439,17 @@ async function start() {
       smilepos.x += dsmile.x;
       smilepos.y += dsmile.y;
 
-      camGame.x = clamp(0, smilepos.x - SCREEN_WIDTH * 0.5, level.width - SCREEN_WIDTH);
-      camGame.y = clamp(0, smilepos.y - SCREEN_HEIGHT * 0.5, level.height - SCREEN_HEIGHT);
+      if (smilepos.x - camGame.x < camPushBox.l) {
+        camGame.x = Math.max(0, smilepos.x - camPushBox.l);
+      } else if (smilepos.x - camGame.x > camPushBox.r) {
+        camGame.x = Math.min(level.width - SCREEN_WIDTH, smilepos.x - camPushBox.r);
+      }
+
+      if (smilepos.y - camGame.y < camPushBox.t) {
+        camGame.y = Math.max(0, smilepos.y - camPushBox.t);
+      } else if (smilepos.y - camGame.y > camPushBox.b) {
+        camGame.y = Math.min(level.height - SCREEN_HEIGHT, smilepos.y - camPushBox.b);
+      }
     }
 
     cam = camGame;

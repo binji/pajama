@@ -202,6 +202,56 @@ function onKeyDown(event) {
   }
 }
 
+function loadSprite(filename, w, h) {
+  const sprite = makeQuad(0, 0, w / TEX_WIDTH, h / TEX_HEIGHT);
+  const image = new Image();
+  image.onload = async () => {
+    let imgbmp = await createImageBitmap(image);
+    uploadTex(sprite.texture, imgbmp);
+  };
+  image.src = filename;
+  return sprite;
+}
+
+let level = { data: null, tiles: {} };
+async function loadLevel() {
+  const response = await fetch('testing.json');
+  const data = await response.json();
+  level.data = data;
+
+  // preprocess tileset data for ease of lookup later
+  for (let tileset of level.data.tilesets) {
+    for (let tile of tileset.tiles) {
+      const gid = tileset.firstgid + tile.id;
+      level.tiles[gid] = {
+        sprite: loadSprite(tile.image, tile.imageheight, tile.imagewidth),
+      };
+    }
+  }
+}
+
+function drawLevel() {
+  if (!level.data) {
+    return;
+  }
+
+  // scaled down 0.25 so it all shows up
+  const size = {x: 0.25*level.data.tilewidth, y: 0.25*level.data.tileheight};
+  for (let layer of level.data.layers) {
+    for (let i = 0; i < layer.data.length; ++i) {
+      let gid = layer.data[i];
+      if (gid === 0) {
+        // 0 GID is empty, don't try to draw it
+        continue;
+      }
+      const x = size.x * (i % layer.width);
+      const y = size.y * Math.floor(i / layer.width);
+      const tile = level.tiles[gid];
+      draw(tile.sprite, shader, {x, y}, size);
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 
 initGl();
@@ -209,15 +259,11 @@ const shader = makeTextureShader();
 const font = makeFont();
 const text = makeText(font, 'dance smiley');
 
-const smiley = makeQuad(0, 0, 226 / TEX_WIDTH, 226 / TEX_HEIGHT);
-const smileyImage = new Image();
-smileyImage.onload = async () => {
-  let imgbmp = await createImageBitmap(smileyImage);
-  uploadTex(smiley.texture, imgbmp);
-};
-smileyImage.src = 'smiley.png';
+const smiley = loadSprite('smiley.png', 226, 226);
 
 document.onkeydown = onKeyDown;
+
+loadLevel();
 
 (function tick(timestamp) {
   requestAnimationFrame(tick);
@@ -227,6 +273,8 @@ document.onkeydown = onKeyDown;
 
   const xoff = 30 * Math.cos(timestamp * 0.005);
   const yoff = 30 * Math.sin(timestamp * 0.003);
+
+  drawLevel();
 
   draw(smiley, shader, {x: 50 + yoff, y: 50 + xoff}, {x: 32, y: 32});
   draw(text, shader, {x: 200 + xoff, y: 40 + yoff});

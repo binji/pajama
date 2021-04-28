@@ -13,6 +13,72 @@ function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
 }
 
+//------------------------------------------------------------------------------
+// Asset loading
+
+let assets = {
+  sprites: {filename: 'sprites.png', type: 'image', data: null},
+  tiles: {filename: 'tiles.png', type: 'image', data: null},
+  font: {filename: 'font.png', type: 'image', data: null},
+  level: {filename: 'testing.json', type: 'json', data: null},
+  boom: {filename: 'boom.mp3', type: 'audio', data: null},
+};
+
+function loadImage(filename) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = async () => {
+      let imgbmp = await createImageBitmap(image);
+      resolve(imgbmp);
+    };
+    image.src = filename;
+  });
+}
+
+async function loadJson(filename) {
+  let response = await fetch(filename);
+  let json = await response.json();
+  return json;
+}
+
+function loadAudio(filename) {
+  let audio = new Audio(filename);
+  return audio;
+}
+
+async function loadAssets() {
+  let promises = [];
+  for (let name of Object.keys(assets)) {
+    let asset = assets[name];
+    switch (asset.type) {
+      case 'image':
+        promises.push((async () => {
+          let image = await loadImage(asset.filename);
+          asset.data = image;
+        })());
+        break;
+
+      case 'json':
+        promises.push((async () => {
+          let json = await loadJson(asset.filename);
+          asset.data = json;
+        })());
+        break;
+
+      case 'audio':
+        promises.push((async () => {
+          let audio = loadAudio(asset.filename);
+          asset.data = audio;
+        })());
+        break;
+    }
+  }
+
+  await Promise.all(promises);
+}
+
+//------------------------------------------------------------------------------
+
 function compileShader(type, source) {
   const shader = gl.createShader(type);
   gl.shaderSource(shader, source);
@@ -31,19 +97,7 @@ function initGl() {
   }
 }
 
-function loadTexture(filename, texture) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = async () => {
-      let imgbmp = await createImageBitmap(image);
-      uploadTex(texture, imgbmp);
-      resolve(texture);
-    };
-    image.src = filename;
-  });
-}
-
-function makeTexture(filename) {
+function makeTexture(asset) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
@@ -51,8 +105,7 @@ function makeTexture(filename) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
-  loadTexture(filename, texture);
-
+  uploadTex(texture, asset.data);
   return texture;
 }
 
@@ -90,7 +143,7 @@ function makeTexMat3x3(texPos, w, h) {
 }
 
 function makeFont() {
-  const texture = makeTexture('font.png');
+  const texture = makeTexture(assets.font);
 
   let map = {};
   for (let i = 0x21; i < 0x7e; ++i) {
@@ -232,11 +285,8 @@ function uploadTex(texture, data) {
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
 }
 
-function playSound(filename) {
-  const audio = new Audio();
-  audio.src = filename;
-  audio.play();
-  return audio;
+function playSound(asset) {
+  asset.data.play();
 }
 
 const accel = 0.55;
@@ -249,7 +299,7 @@ let dsmile = {x: 0, y: 0};
 function onKeyDown(event) {
   switch (event.key) {
     case 'p':
-      playSound('boom.mp3');
+      playSound(assets.boom);
       break;
 
     case 'ArrowLeft':
@@ -288,9 +338,8 @@ let level = {
   width: 0,
   height: 0,
 };
-async function loadLevel() {
-  const response = await fetch('testing.json');
-  level.data = await response.json();;
+function loadLevel() {
+  level.data = assets.level.data;
   level.sprite = {};
 
   if (level.data.layers.length != 1) { throw 'no'; }
@@ -308,7 +357,7 @@ async function loadLevel() {
     const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
     level.tiles[gid] = {u, v};
   }
-  level.sprite.texture = makeTexture(tileset.image);
+  level.sprite.texture = makeTexture(assets.tiles);
 
   // generate render buffer
   const layer = level.data.layers[0];
@@ -344,57 +393,64 @@ async function loadLevel() {
 
 //------------------------------------------------------------------------------
 
-initGl();
-const shader = makeTextureShader();
-const font = makeFont();
-const text = makeText(font, 'blink smiley');
-const spriteTexture = makeTexture('sprites.png');
-const quad = makeQuad(spriteTexture);
-
-const smiley = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
-const smileyBlink = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
-
-document.onkeydown = onKeyDown;
-document.onkeyup = onKeyUp;
-
-loadLevel();
-
-let camUI = {x: 0, y: 0};
-let camGame = {x: 0, y: 0};
 let cam;
 
-const updateMs = 16.6;
-let lastTimestamp;
-let updateRemainder = 0;
-function tick(timestamp) {
-  requestAnimationFrame(tick);
+async function start() {
+  await loadAssets();
 
-  if (lastTimestamp === undefined) { lastTimestamp = timestamp; }
-  let elapsed = timestamp - lastTimestamp;
-  lastTimestamp = timestamp;
+  initGl();
+  const shader = makeTextureShader();
+  const font = makeFont();
+  const text = makeText(font, 'blink smiley');
+  const spriteTexture = makeTexture(assets.sprites);
+  const quad = makeQuad(spriteTexture);
 
-  gl.clearColor(0, 0.1, 0.1, 1.0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  const smiley = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
+  const smileyBlink = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
 
-  updateRemainder += elapsed;
-  while (updateRemainder > updateMs) {
-    updateRemainder -= updateMs;
-    dsmile.x = clamp(-maxvel, (dsmile.x + ddsmile.x) * drag, maxvel);
-    dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
-    smilepos.x += dsmile.x;
-    smilepos.y += dsmile.y;
+  document.onkeydown = onKeyDown;
+  document.onkeyup = onKeyUp;
 
-    camGame.x = clamp(0, smilepos.x - SCREEN_WIDTH * 0.5, level.width - SCREEN_WIDTH);
-    camGame.y = clamp(0, smilepos.y - SCREEN_HEIGHT * 0.5, level.height - SCREEN_HEIGHT);
+  loadLevel();
+
+  let camUI = {x: 0, y: 0};
+  let camGame = {x: 0, y: 0};
+
+  const updateMs = 16.6;
+  let lastTimestamp;
+  let updateRemainder = 0;
+  function tick(timestamp) {
+    requestAnimationFrame(tick);
+
+    if (lastTimestamp === undefined) { lastTimestamp = timestamp; }
+    let elapsed = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    gl.clearColor(0, 0.1, 0.1, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    updateRemainder += elapsed;
+    while (updateRemainder > updateMs) {
+      updateRemainder -= updateMs;
+      dsmile.x = clamp(-maxvel, (dsmile.x + ddsmile.x) * drag, maxvel);
+      dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
+      smilepos.x += dsmile.x;
+      smilepos.y += dsmile.y;
+
+      camGame.x = clamp(0, smilepos.x - SCREEN_WIDTH * 0.5, level.width - SCREEN_WIDTH);
+      camGame.y = clamp(0, smilepos.y - SCREEN_HEIGHT * 0.5, level.height - SCREEN_HEIGHT);
+    }
+
+    cam = camGame;
+    draw(level.sprite, shader);
+
+    draw(quad, shader, smilepos, {x: 48, y: 48},
+         Math.random() < 0.01 ? smileyBlink : smiley);
+
+    cam = camUI;
+    draw(text, shader, {x: 10, y: 10});
   }
+  requestAnimationFrame(tick);
+};
 
-  cam = camGame;
-  draw(level.sprite, shader);
-
-  draw(quad, shader, smilepos, {x: 48, y: 48},
-       Math.random() < 0.01 ? smileyBlink : smiley);
-
-  cam = camUI;
-  draw(text, shader, {x: 10, y: 10});
-}
-requestAnimationFrame(tick);
+start();

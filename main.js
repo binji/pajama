@@ -31,13 +31,28 @@ function initGl() {
   }
 }
 
-function makeTexture() {
+function loadTexture(filename, texture) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = async () => {
+      let imgbmp = await createImageBitmap(image);
+      uploadTex(texture, imgbmp);
+      resolve(texture);
+    };
+    image.src = filename;
+  });
+}
+
+function makeTexture(filename) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
                 gl.UNSIGNED_BYTE, null);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+
+  loadTexture(filename, texture);
+
   return texture;
 }
 
@@ -75,13 +90,7 @@ function makeTexMat3x3(texPos, w, h) {
 }
 
 function makeFont() {
-  const texture = makeTexture();
-  const img = new Image();
-  img.onload = async () => {
-    let imgbmp = await createImageBitmap(img);
-    uploadTex(texture, imgbmp);
-  };
-  img.src = 'font.png';
+  const texture = makeTexture('font.png');
 
   let map = {};
   for (let i = 0x21; i < 0x7e; ++i) {
@@ -272,18 +281,6 @@ function onKeyUp(event) {
   }
 }
 
-function loadTexture(filename, texture) {
-  return new Promise((resolve, reject) => {
-    const image = new Image();
-    image.onload = async () => {
-      let imgbmp = await createImageBitmap(image);
-      uploadTex(texture, imgbmp);
-      resolve(texture);
-    };
-    image.src = filename;
-  });
-}
-
 let level = {
   data : null,
   tiles : {},
@@ -311,8 +308,7 @@ async function loadLevel() {
     const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
     level.tiles[gid] = {u, v};
   }
-  level.sprite.texture = makeTexture();
-  await loadTexture(tileset.image, level.sprite.texture);
+  level.sprite.texture = makeTexture(tileset.image);
 
   // generate render buffer
   const layer = level.data.layers[0];
@@ -352,8 +348,7 @@ initGl();
 const shader = makeTextureShader();
 const font = makeFont();
 const text = makeText(font, 'blink smiley');
-const spriteTexture = makeTexture();
-loadTexture('sprites.png', spriteTexture);
+const spriteTexture = makeTexture('sprites.png');
 const quad = makeQuad(spriteTexture);
 
 const smiley = makeTexMat3x3(getSpriteTexPos(0), 48, 48);

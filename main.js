@@ -283,12 +283,14 @@ async function loadLevel() {
 
   // preprocess tileset data for ease of lookup later
   let tileset = level.data.tilesets[0];
-  const du = tileset.tilewidth / tileset.imagewidth;
-  const dv = tileset.tileheight / tileset.imageheight;
+  const strideu = (tileset.tilewidth + tileset.spacing) / tileset.imagewidth;
+  const stridev = (tileset.tileheight + tileset.spacing) / tileset.imageheight;
+  const marginu = tileset.margin / tileset.imagewidth;
+  const marginv = tileset.margin / tileset.imageheight;
 
-  for (let gid = 1; gid < tileset.tilecount + 1; ++gid) {
-    const u = ((gid - 1) % tileset.columns) * du;
-    const v = (Math.floor((gid - 1) / tileset.columns)) * dv;
+  for (let gid = tileset.firstgid; gid < tileset.firstgid + tileset.tilecount; ++gid) {
+    const u = ((gid - tileset.firstgid) % tileset.columns) * strideu + marginu;
+    const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
     level.tiles[gid] = {u, v};
   }
   level.sprite.texture = makeTexture();
@@ -301,6 +303,8 @@ async function loadLevel() {
   const maxcount = layer.width * layer.height * 6;
   const data = new Float32Array(maxcount * 4);
 
+  const du = tileset.tilewidth / tileset.imagewidth;
+  const dv = tileset.tileheight / tileset.imageheight;
   const dx = 48;
   const dy = 48;
   let x = 0;

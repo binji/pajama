@@ -498,12 +498,7 @@ function playSound(asset) {
   asset.data.play();
 }
 
-const accel = 0.55;
-const drag = 0.85;
-const maxvel = 3;
-let smilepos = {x: 300, y: 300};
-let ddsmile = {x: 0, y: 0};
-let dsmile = {x: 0, y: 0};
+let smiley;
 
 function onKeyDown(event) {
   switch (event.key) {
@@ -517,16 +512,16 @@ function onKeyDown(event) {
       break;
 
     case 'ArrowLeft':
-      ddsmile.x = -accel;
+      smiley.moveLeft();
       break;
     case 'ArrowRight':
-      ddsmile.x = +accel;
+      smiley.moveRight();
       break;
     case 'ArrowUp':
-      ddsmile.y = -accel;
+      smiley.moveUp();
       break;
     case 'ArrowDown':
-      ddsmile.y = +accel;
+      smiley.moveDown();
       break;
   }
 }
@@ -535,12 +530,12 @@ function onKeyUp(event) {
   switch (event.key) {
     case 'ArrowLeft':
     case 'ArrowRight':
-      ddsmile.x = 0;
+      smiley.stopHoriz();
       break;
 
     case 'ArrowUp':
     case 'ArrowDown':
-      ddsmile.y = 0;
+      smiley.stopVert();
       break;
   }
 }
@@ -564,72 +559,134 @@ function distToLineSegment2(px, py, v0x, v0y, v1x, v1y) {
   return {dist2: dist2(px, py, ix, iy), ix, iy};
 }
 
-function smileyCollision() {
-  const boxSegs = [
-    {x0: 0, y0: 0, x1: TILE_SIZE, y1: 0},                  // top
-    {x0: 0, y0: 0, x1: 0, y1: TILE_SIZE},                  // left
-    {x0: 0, y0: TILE_SIZE, x1: TILE_SIZE, y1: TILE_SIZE},  // bottom
-    {x0: TILE_SIZE, y0 : 0, x1: TILE_SIZE, y1: TILE_SIZE}, // right
-  ];
-  const dirs = [
-    {x: -1, y: -1},
-    {x: -1, y:  0},
-    {x: -1, y: +1},
-    {x:  0, y: -1},
-    {x:  0, y: +1},
-    {x: +1, y: -1},
-    {x: +1, y:  0},
-    {x: +1, y: +1},
-  ];
-  let px = smilepos.x;
-  let py = smilepos.y;
-  let rad = 22; // a little less than tile width / 2
-  let rad2 = rad * rad;
-  let tx = Math.floor(px / TILE_SIZE);
-  let ty = Math.floor(py / TILE_SIZE);
-  let layer = level.data.layers[1];
+let font;
+let text;
 
-  function getCell(x, y) {
-    if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) { return 0; }
-    return layer.data[y * layer.width + x];
+class Smiley {
+  constructor(texture) {
+    this.sprite = Sprite.makeQuad(
+        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
+        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+    this.x = level.startPos.x;
+    this.y = level.startPos.y;
+    this.dx = 0;
+    this.dy = 0;
+    this.ddx = 0;
+    this.ddy = 0;
+    this.baseFrame = 10;
+    this.frame = 10;
+
+    this.animTimer = 0;
+    this.blinkTimer = 0;
+
+    this.accel = 0.55;
+    this.drag = 0.85;
+    this.maxvel = 3;
   }
 
-  for (let dir of dirs) {
-    let tile = getCell(tx + dir.x, ty + dir.y);
-    if (!tile) continue;
+  moveLeft() { this.ddx = -this.accel; }
+  moveRight() { this.ddx = +this.accel; }
+  moveUp() { this.ddy = -this.accel; }
+  moveDown() { this.ddy = +this.accel; }
+  stopHoriz() { this.ddx = 0; }
+  stopVert() { this.ddy = 0; }
 
-    for (let seg of boxSegs) {
-      let left = (tx + dir.x) * TILE_SIZE;
-      let top = (ty + dir.y) * TILE_SIZE;
-      let {dist2, ix, iy} = distToLineSegment2(
-        px, py,
-        seg.x0 + left, seg.y0 + top,
-        seg.x1 + left, seg.y1 + top
-      );
+  doAnim() {
+    let moving = false;
+    if (this.ddx > 0) {
+      this.baseFrame = 10;
+      moving = true;
+    } else if (this.ddx < 0) {
+      this.baseFrame = 20;
+      moving = true;
+    } else if (this.ddy > 0) {
+      this.baseFrame = 30;
+      moving = true;
+    } else if (this.ddy < 0) {
+      this.baseFrame = 40;
+      moving = true;
+    }
 
-      if (dist2 < rad2) {
-        // push away along vec between object and segment.
-        let dist = Math.sqrt(dist2);
-        let pushx = (rad - dist) * (px - ix) / dist;
-        let pushy = (rad - dist) * (py - iy) / dist;
-        px += pushx;
-        py += pushy;
+    if (moving) {
+      this.frame = this.baseFrame + 2 + Math.floor(this.animTimer / 6);
+      if (++this.animTimer >= 4 * 6) {
+        this.animTimer = 0;
+      }
+    } else {
+      this.animTimer = 0;
+      this.frame = this.baseFrame;
+      if (--this.blinkTimer < 0) {
+        this.frame = this.baseFrame + 1;
+        if (this.blinkTimer < -5) {
+          this.blinkTimer = Math.floor(Math.random() * 100 + 30);
+        }
       }
     }
   }
 
-  smilepos.x = px;
-  smilepos.y = py;
-}
+  doCollision() {
+    const boxSegs = [
+      {x0 : 0, y0 : 0, x1 : TILE_SIZE, y1 : 0},                 // top
+      {x0 : 0, y0 : 0, x1 : 0, y1 : TILE_SIZE},                 // left
+      {x0 : 0, y0 : TILE_SIZE, x1 : TILE_SIZE, y1 : TILE_SIZE}, // bottom
+      {x0 : TILE_SIZE, y0 : 0, x1 : TILE_SIZE, y1 : TILE_SIZE}, // right
+    ];
+    const dirs = [
+      {x : -1, y : -1},
+      {x : -1, y : 0},
+      {x : -1, y : +1},
+      {x : 0, y : -1},
+      {x : 0, y : +1},
+      {x : +1, y : -1},
+      {x : +1, y : 0},
+      {x : +1, y : +1},
+    ];
+    let px = this.x;
+    let py = this.y;
+    let rad = 22; // a little less than tile width / 2
+    let rad2 = rad * rad;
+    let tx = Math.floor(px / TILE_SIZE);
+    let ty = Math.floor(py / TILE_SIZE);
+    let layer = level.data.layers[1];
 
-let font;
-let text;
+    function getCell(x, y) {
+      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
+        return 0;
+      }
+      return layer.data[y * layer.width + x];
+    }
 
-function smileyTriggers() {
-  for (let trigger of level.triggers) {
-    if (smilepos.x >= trigger.x && smilepos.x < trigger.x + trigger.w &&
-        smilepos.y >= trigger.y && smilepos.y < trigger.y + trigger.h) {
-      switch (trigger.type) {
+    for (let dir of dirs) {
+      let tile = getCell(tx + dir.x, ty + dir.y);
+      if (!tile)
+        continue;
+
+      for (let seg of boxSegs) {
+        let left = (tx + dir.x) * TILE_SIZE;
+        let top = (ty + dir.y) * TILE_SIZE;
+        let {dist2, ix, iy} = distToLineSegment2(
+            px, py, seg.x0 + left, seg.y0 + top, seg.x1 + left, seg.y1 + top);
+
+        if (dist2 < rad2) {
+          // push away along vec between object and segment.
+          let dist = Math.sqrt(dist2);
+          let pushx = (rad - dist) * (px - ix) / dist;
+          let pushy = (rad - dist) * (py - iy) / dist;
+          px += pushx;
+          py += pushy;
+        }
+      }
+    }
+
+    this.x = px;
+    this.y = py;
+  }
+
+  doTriggers() {
+    for (let trigger of level.triggers) {
+      if (this.x >= trigger.x && this.x < trigger.x + trigger.w &&
+          this.y >= trigger.y && this.y < trigger.y + trigger.h) {
+        switch (trigger.type) {
         case 'message':
           text.destroy();
           text = Sprite.makeText(font, trigger.message, new Mat3(),
@@ -638,15 +695,34 @@ function smileyTriggers() {
 
         case 'stairs':
           level = assets[trigger.dest].data;
-          smilepos.x = level.stairPos.x;
-          smilepos.y = level.stairPos.y;
+          this.x = level.stairPos.x;
+          this.y = level.stairPos.y;
           break;
+        }
+        break;
       }
-      break;
     }
   }
-}
 
+  update() {
+    this.dx = clamp(-this.maxvel, (this.dx + this.ddx) * this.drag, this.maxvel);
+    this.dy = clamp(-this.maxvel, (this.dy + this.ddy) * this.drag, this.maxvel);
+    this.x += this.dx;
+    this.y += this.dy;
+
+    this.doAnim();
+    this.doCollision();
+    this.doTriggers();
+
+    this.sprite.objMat.setTranslate(this.x, this.y);
+    let texPos = getSpriteTexPos(this.frame);
+    this.sprite.texMat.setTranslate(texPos.x, texPos.y);
+  }
+};
+
+
+//------------------------------------------------------------------------------
+// Bouncies
 
 class Bouncies {
   constructor(texture) {
@@ -704,8 +780,6 @@ async function start() {
   await loadAssets();
 
   level = assets.testing.data;
-  smilepos.x = level.startPos.x;
-  smilepos.y = level.startPos.y;
 
   // music should loop
   assets.doots.data.loop = true;
@@ -716,13 +790,7 @@ async function start() {
   text = Sprite.makeText(font, 'find ice; M is for music', new Mat3(),
                          Mat3.makeTranslate(10, 10));
   const spriteTexture = makeTexture(assets.sprites);
-  const smiley =
-      Sprite.makeQuad(spriteTexture, Mat3.makeScale(TILE_SIZE, TILE_SIZE));
-
-  const smileyTexMat = makeTexMat3x3(getSpriteTexPos(0), TILE_SIZE, TILE_SIZE);
-  const smileyBlinkTexMat =
-      makeTexMat3x3(getSpriteTexPos(1), TILE_SIZE, TILE_SIZE);
-
+  smiley = new Smiley(spriteTexture);
   const bouncies = new Bouncies(spriteTexture);
 
   document.onkeydown = onKeyDown;
@@ -747,29 +815,22 @@ async function start() {
     updateRemainder += elapsed;
     while (updateRemainder > updateMs) {
       updateRemainder -= updateMs;
-      dsmile.x = clamp(-maxvel, (dsmile.x + ddsmile.x) * drag, maxvel);
-      dsmile.y = clamp(-maxvel, (dsmile.y + ddsmile.y) * drag, maxvel);
-      smilepos.x += dsmile.x;
-      smilepos.y += dsmile.y;
 
-      smileyCollision();
-      smileyTriggers();
+      smiley.update();
 
-      if (smilepos.x - camX < camPushBox.l) {
-        camX = Math.max(0, smilepos.x - camPushBox.l);
-      } else if (smilepos.x - camX > camPushBox.r) {
-        camX = Math.min(level.width - SCREEN_WIDTH, smilepos.x - camPushBox.r);
+      if (smiley.x - camX < camPushBox.l) {
+        camX = Math.max(0, smiley.x - camPushBox.l);
+      } else if (smiley.x - camX > camPushBox.r) {
+        camX = Math.min(level.width - SCREEN_WIDTH, smiley.x - camPushBox.r);
       }
 
-      if (smilepos.y - camY < camPushBox.t) {
-        camY = Math.max(0, smilepos.y - camPushBox.t);
-      } else if (smilepos.y - camY > camPushBox.b) {
-        camY = Math.min(level.height - SCREEN_HEIGHT, smilepos.y - camPushBox.b);
+      if (smiley.y - camY < camPushBox.t) {
+        camY = Math.max(0, smiley.y - camPushBox.t);
+      } else if (smiley.y - camY > camPushBox.b) {
+        camY = Math.min(level.height - SCREEN_HEIGHT, smiley.y - camPushBox.b);
       }
 
       camMatGame.setTranslate(-camX, -camY);
-      smiley.objMat.setTranslate(smilepos.x, smilepos.y);
-
       bouncies.update();
     }
 
@@ -778,9 +839,7 @@ async function start() {
 
     bouncies.draw(shader);
 
-    // Blink anim
-    smiley.texMat = Math.random() < 0.01 ? smileyBlinkTexMat : smileyTexMat;
-    draw(smiley, shader);
+    draw(smiley.sprite, shader);
 
     camMat = mat3Id;
     draw(text, shader);

@@ -3,15 +3,37 @@ const SCREEN_HEIGHT = 270;
 const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
 
-const noPos = {x: 0, y: 0};
-const noScale = {x: 1, y: 1};
-const id3x3 = new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1]);
-
 let gl;
 
 function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
 }
+
+class Mat3 {
+  constructor() {
+    this.m = new Float32Array(9);
+    this.setIdentity();
+  }
+
+  setIdentity() {
+    this.m.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
+    return this;
+  }
+
+  setTranslate(tx, ty) {
+    this.m[6] = tx;
+    this.m[7] = ty;
+    return this;
+  }
+
+  setScale(sx, sy) {
+    this.m[0] = sx;
+    this.m[4] = sy;
+    return this;
+  }
+};
+
+const mat3Id = new Mat3();
 
 //------------------------------------------------------------------------------
 // Asset loading
@@ -284,11 +306,9 @@ function getSpriteTexPos(index) {
 }
 
 function makeTexMat3x3(texPos, w, h) {
-  return new Float32Array([
-    w / TEX_WIDTH, 0, 0,
-    0, h / TEX_HEIGHT, 0,
-    texPos.x, texPos.y, 0,
-  ]);
+  return new Mat3()
+      .setScale(w / TEX_WIDTH, h / TEX_HEIGHT)
+      .setTranslate(texPos.x, texPos.y);
 }
 
 function makeFont() {
@@ -367,9 +387,8 @@ function destroyText(sprite) {
 
 function makeTextureShader() {
   const vertexShader = compileShader(gl.VERTEX_SHADER,
-     `uniform vec2 uPos;
-      uniform vec2 uScale;
-      uniform vec2 uCamera;
+     `uniform mat3 uObjMat;
+      uniform mat3 uCamMat;
       uniform mat3 uTexMat;
 
       attribute vec2 aPos;
@@ -377,9 +396,13 @@ function makeTextureShader() {
       varying highp vec2 vTexCoord;
 
       void main(void) {
-        vec2 pos = vec2((aPos.x * uScale.x + uPos.x - uCamera.x) / 240.0 - 1.0,
-                         1.0 - (aPos.y * uScale.y + uPos.y - uCamera.y)  / 135.0);
-        gl_Position = vec4(pos, 0.0, 1.0);
+        float w = 480.0, h = 270.0;
+        mat3 proj = mat3(2.0 / w,         0,  0,
+                               0,  -2.0 / h,  0,
+                            -1.0,       1.0,  0);
+
+        vec3 pos = vec3(aPos, 1.0);
+        gl_Position = vec4(proj * uCamMat * uObjMat * pos, 1.0);
         vTexCoord = (uTexMat * vec3(aTexCoord, 1)).xy;
       }`);
   const fragmentShader = compileShader(gl.FRAGMENT_SHADER,
@@ -405,15 +428,14 @@ function makeTextureShader() {
   const aPos = gl.getAttribLocation(program, 'aPos');
   const aTexCoord = gl.getAttribLocation(program, 'aTexCoord');
   const uSampler = gl.getUniformLocation(program, 'uSampler');
-  const uPos = gl.getUniformLocation(program, 'uPos');
-  const uScale = gl.getUniformLocation(program, 'uScale');
-  const uCamera = gl.getUniformLocation(program, 'uCamera');
+  const uObjMat = gl.getUniformLocation(program, 'uObjMat');
+  const uCamMat = gl.getUniformLocation(program, 'uCamMat');
   const uTexMat = gl.getUniformLocation(program, 'uTexMat');
 
-  return {program, aPos, aTexCoord, uSampler, uPos, uScale, uCamera, uTexMat};
+  return {program, aPos, aTexCoord, uSampler, uObjMat, uCamMat, uTexMat};
 }
 
-function draw(sprite, shader, pos = noPos, scale = noScale, texMat = id3x3) {
+function draw(sprite, shader, objMat = mat3Id, texMat = mat3Id) {
   if (!sprite) return;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
@@ -425,10 +447,9 @@ function draw(sprite, shader, pos = noPos, scale = noScale, texMat = id3x3) {
   gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
   gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
   gl.uniform1i(shader.uSampler, 0);
-  gl.uniform2f(shader.uPos, pos.x, pos.y);
-  gl.uniform2f(shader.uScale, scale.x, scale.y);
-  gl.uniform2f(shader.uCamera, cam.x, cam.y);
-  gl.uniformMatrix3fv(shader.uTexMat, false, texMat);
+  gl.uniformMatrix3fv(shader.uObjMat, false, objMat.m);
+  gl.uniformMatrix3fv(shader.uCamMat, false, camMat.m);
+  gl.uniformMatrix3fv(shader.uTexMat, false, texMat.m);
 
   gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
 }
@@ -592,7 +613,7 @@ function smileyTriggers() {
 
 //------------------------------------------------------------------------------
 
-let cam;
+let camMat;
 let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
                   t:SCREEN_HEIGHT * 0.35, b:SCREEN_HEIGHT * 0.65};
 
@@ -621,8 +642,10 @@ async function start() {
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
 
-  let camUI = {x: 0, y: 0};
-  let camGame = {x: 0, y: 0};
+  let textMat = (new Mat3()).setTranslate(10, 10);
+  let smileMat = (new Mat3()).setScale(48, 48);
+  let camMatGame = new Mat3();
+  let camX = 0, camY = 0;
 
   const updateMs = 16.6;
   let lastTimestamp;
@@ -648,27 +671,29 @@ async function start() {
       smileyCollision();
       smileyTriggers();
 
-      if (smilepos.x - camGame.x < camPushBox.l) {
-        camGame.x = Math.max(0, smilepos.x - camPushBox.l);
-      } else if (smilepos.x - camGame.x > camPushBox.r) {
-        camGame.x = Math.min(level.width - SCREEN_WIDTH, smilepos.x - camPushBox.r);
+      if (smilepos.x - camX < camPushBox.l) {
+        camX = Math.max(0, smilepos.x - camPushBox.l);
+      } else if (smilepos.x - camX > camPushBox.r) {
+        camX = Math.min(level.width - SCREEN_WIDTH, smilepos.x - camPushBox.r);
       }
 
-      if (smilepos.y - camGame.y < camPushBox.t) {
-        camGame.y = Math.max(0, smilepos.y - camPushBox.t);
-      } else if (smilepos.y - camGame.y > camPushBox.b) {
-        camGame.y = Math.min(level.height - SCREEN_HEIGHT, smilepos.y - camPushBox.b);
+      if (smilepos.y - camY < camPushBox.t) {
+        camY = Math.max(0, smilepos.y - camPushBox.t);
+      } else if (smilepos.y - camY > camPushBox.b) {
+        camY = Math.min(level.height - SCREEN_HEIGHT, smilepos.y - camPushBox.b);
       }
+
+      camMatGame.setTranslate(-camX, -camY);
+      smileMat.setTranslate(smilepos.x, smilepos.y);
     }
 
-    cam = camGame;
+    camMat = camMatGame;
     draw(level.sprite, shader);
 
-    draw(quad, shader, smilepos, {x: 48, y: 48},
-         Math.random() < 0.01 ? smileyBlink : smiley);
+    draw(quad, shader, smileMat, Math.random() < 0.01 ? smileyBlink : smiley);
 
-    cam = camUI;
-    draw(text, shader, {x: 10, y: 10});
+    camMat = mat3Id;
+    draw(text, shader, textMat);
   }
   requestAnimationFrame(tick);
 };

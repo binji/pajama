@@ -15,6 +15,10 @@ class Mat3 {
     this.setIdentity();
   }
 
+  static makeScale(sx, sy) { return (new Mat3()).setScale(sx, sy); }
+
+  static makeTranslate(tx, ty) { return (new Mat3()).setTranslate(tx, ty); }
+
   setIdentity() {
     this.m.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
     return this;
@@ -34,6 +38,100 @@ class Mat3 {
 };
 
 const mat3Id = new Mat3();
+
+//------------------------------------------------------------------------------
+// VertexBuffer
+
+class VertexBuffer {
+  constructor() {
+    this.data = [];
+    this.glbuf = gl.createBuffer();
+    this.first = 0;
+    this.count = 0;
+  }
+
+  destroy() {
+    gl.deleteBuffer(this.glbuf);
+  }
+
+  reset() {
+    this.data.length = 0;
+  }
+
+  push(x, y, u, v) {
+    this.data.push(x, y, u, v);
+    this.count++;
+  }
+
+  pushTriStripQuad(x, y, u, v, dx, dy, du, dv) {
+    this.push(x, y, u, v);                     // TL
+    this.push(x, y, u, v);                     // TL
+    this.push(x, y + dy, u, v + dv);           // BL
+    this.push(x + dx, y, u + du, v);           // TR
+    this.push(x + dx, y + dy, u + du, v + dv); // BR
+    this.push(x + dx, y + dy, u + du, v + dv); // BR
+  }
+
+  upload() {
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.glbuf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.data), gl.STATIC_DRAW);
+  }
+};
+
+//------------------------------------------------------------------------------
+// Sprite
+
+class Sprite {
+  constructor(buffer, texture, objMat, texMat) {
+    if (objMat === undefined) objMat = new Mat3();
+    if (texMat === undefined) texMat = new Mat3();
+
+    this.buffer = buffer;
+    this.texture = texture;
+    this.objMat = objMat;
+    this.texMat = texMat;
+  }
+
+  destroy() {
+    this.buffer.destroy();
+  }
+
+  static makeEmptyBuffer(texture, objMat, texMat) {
+    let vb = new VertexBuffer();
+    return new Sprite(vb, texture, objMat, texMat);
+  }
+
+  static makeQuad(texture, objMat, texMat) {
+    let vb = new VertexBuffer();
+    vb.push(-0.5, -0.5, 0, 0);
+    vb.push(-0.5, +0.5, 0, 1);
+    vb.push(+0.5, -0.5, 1, 0);
+    vb.push(+0.5, +0.5, 1, 1);
+    vb.upload();
+    return new Sprite(vb, texture, objMat, texMat);
+  }
+
+  static makeText(font, str, objMat, texMat) {
+    const dx = 16;
+    const dy = 16;
+    const du = 16 / TEX_WIDTH;
+    const dv = 16 / TEX_HEIGHT;
+
+    let x = 0, y = 0;
+    let vb = new VertexBuffer();
+    for (let i = 0; i < str.length; ++i) {
+      const chr = str.charCodeAt(i);
+      if (chr != 32) {
+        const {u, v} = font.map[chr];
+        vb.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
+      }
+      x += dx;
+    }
+    vb.upload();
+    return new Sprite(vb, font.texture, objMat, texMat);
+  }
+}
+
 
 //------------------------------------------------------------------------------
 // Asset loading
@@ -75,15 +173,11 @@ function loadAudio(filename) {
 async function loadLevel(filename) {
   let response = await fetch(filename);
   let json = await response.json();
+  let texture = makeTexture(assets.tiles);
 
   let level = {
     data: json,
-    sprite: {
-      first: 0,
-      count: 0,
-      width: 0,
-      height: 0,
-    },
+    sprite: Sprite.makeEmptyBuffer(texture),
     tiles: {},
     triggers: [],
     startPos: {x: 0, y: 0},
@@ -106,28 +200,18 @@ async function loadLevel(filename) {
     const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
     level.tiles[gid] = {u, v};
   }
-  level.sprite.texture = makeTexture(assets.tiles);
 
   // generate render buffer
   for (let layer of level.data.layers) {
     if (layer.type != 'tilelayer') continue;
     level.width = Math.max(level.width, layer.width * tileset.tilewidth);
     level.height = Math.max(level.height, layer.height * tileset.tileheight);
-    for (let tile of layer.data) {
-      if (tile != 0) {
-        level.sprite.count += 6;
-      }
-    }
   }
-
-  level.sprite.buffer = gl.createBuffer();
 
   const dx = 48;
   const dy = 48;
   const du = tileset.tilewidth / tileset.imagewidth;
   const dv = tileset.tileheight / tileset.imageheight;
-  const data = new Float32Array(level.sprite.count * 4);
-  let p = 0;
 
   for (let layer of level.data.layers) {
     if (layer.type != 'tilelayer') continue;
@@ -139,11 +223,11 @@ async function loadLevel(filename) {
         const x = (i % layer.width) * dx;
         const y = Math.floor(i / layer.width) * dy;
         const {u, v} = level.tiles[gid];
-        setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
-        p++;
+        level.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
       }
     }
   }
+  level.sprite.buffer.upload();
 
   // Handle object layer
   for (let layer of level.data.layers) {
@@ -184,9 +268,6 @@ async function loadLevel(filename) {
       }
     }
   }
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
 
   return level;
 }
@@ -249,6 +330,7 @@ async function loadAssets() {
 }
 
 //------------------------------------------------------------------------------
+// GL stuff
 
 function compileShader(type, source) {
   const shader = gl.createShader(type);
@@ -280,19 +362,6 @@ function makeTexture(asset) {
   return texture;
 }
 
-function makeQuad(texture) {
-  const buffer = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -0.5, -0.5,  0, 0,
-    -0.5, +0.5,  0, 1,
-    +0.5, -0.5,  1, 0,
-    +0.5, +0.5,  1, 1,
-  ]), gl.STATIC_DRAW);
-
-  return {first: 0, count: 4, buffer, texture};
-}
-
 function getSpriteTexPos(index) {
   const margin = 1;
   const spacing = 2;
@@ -322,67 +391,6 @@ function makeFont() {
     map[i] = {u, v};
   }
   return {texture, map};
-}
-
-function setTileCoord(data, i, x, y, u, v, dx, dy, du, dv) {
-  data[i * 6 * 4 + 0] = x; // TL x
-  data[i * 6 * 4 + 1] = y; // TL y
-  data[i * 6 * 4 + 2] = u; // TL u
-  data[i * 6 * 4 + 3] = v; // TL v
-
-  data[i * 6 * 4 + 4] = x; // TL x
-  data[i * 6 * 4 + 5] = y; // TL y
-  data[i * 6 * 4 + 6] = u; // TL u
-  data[i * 6 * 4 + 7] = v; // TL v
-
-  data[i * 6 * 4 + 8] = x;      // BL x
-  data[i * 6 * 4 + 9] = y + dy; // BL y
-  data[i * 6 * 4 + 10] = u;      // BL u
-  data[i * 6 * 4 + 11] = v + dv; // BL v
-
-  data[i * 6 * 4 + 12] = x + dx;  // TR x
-  data[i * 6 * 4 + 13] = y;       // TR y
-  data[i * 6 * 4 + 14] = u + du; // TR u
-  data[i * 6 * 4 + 15] = v;      // TR v
-
-  data[i * 6 * 4 + 16] = x + dx; // BR x
-  data[i * 6 * 4 + 17] = y + dy; // BR y
-  data[i * 6 * 4 + 18] = u + du; // BR u
-  data[i * 6 * 4 + 19] = v + dv; // BR v
-
-  data[i * 6 * 4 + 20] = x + dx; // BR x
-  data[i * 6 * 4 + 21] = y + dy; // BR y
-  data[i * 6 * 4 + 22] = u + du; // BR u
-  data[i * 6 * 4 + 23] = v + dv; // BR v
-}
-
-function makeText(font, str, x = 0, y = 0) {
-  const dx = 16;
-  const dy = 16;
-  const du = 16 / TEX_WIDTH;
-  const dv = 16 / TEX_HEIGHT;
-
-  const buffer = gl.createBuffer();
-  const count = str.length * 6;
-  const data = new Float32Array(count * 4);
-
-  for (let i = 0; i < str.length; ++i) {
-    const chr = str.charCodeAt(i);
-    if (chr != 32) {
-      const {u, v} = font.map[chr];
-      setTileCoord(data, i, x, y, u, v, dx, dy, du, dv);
-    }
-    x += dx;
-  }
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-
-  return {first: 0, count, buffer, texture: font.texture};
-}
-
-function destroyText(sprite) {
-  gl.deleteBuffer(sprite.buffer);
 }
 
 function makeTextureShader() {
@@ -435,10 +443,10 @@ function makeTextureShader() {
   return {program, aPos, aTexCoord, uSampler, uObjMat, uCamMat, uTexMat};
 }
 
-function draw(sprite, shader, objMat = mat3Id, texMat = mat3Id) {
+function draw(sprite, shader) {
   if (!sprite) return;
 
-  gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer);
+  gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer.glbuf);
   gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
   gl.useProgram(shader.program);
 
@@ -447,11 +455,12 @@ function draw(sprite, shader, objMat = mat3Id, texMat = mat3Id) {
   gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
   gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
   gl.uniform1i(shader.uSampler, 0);
-  gl.uniformMatrix3fv(shader.uObjMat, false, objMat.m);
+  gl.uniformMatrix3fv(shader.uObjMat, false, sprite.objMat.m);
   gl.uniformMatrix3fv(shader.uCamMat, false, camMat.m);
-  gl.uniformMatrix3fv(shader.uTexMat, false, texMat.m);
+  gl.uniformMatrix3fv(shader.uTexMat, false, sprite.texMat.m);
 
-  gl.drawArrays(gl.TRIANGLE_STRIP, sprite.first, sprite.count);
+  gl.drawArrays(gl.TRIANGLE_STRIP, sprite.buffer.first,
+                sprite.buffer.count);
 }
 
 function uploadTex(texture, data) {
@@ -596,8 +605,9 @@ function smileyTriggers() {
         smilepos.y >= trigger.y && smilepos.y < trigger.y + trigger.h) {
       switch (trigger.type) {
         case 'message':
-          destroyText(text);
-          text = makeText(font, trigger.message);
+          text.destroy();
+          text = Sprite.makeText(font, trigger.message, new Mat3(),
+                                 Mat3.makeTranslate(10, 10));
           break;
 
         case 'stairs':
@@ -632,18 +642,17 @@ async function start() {
 
   const shader = makeTextureShader();
   font = makeFont();
-  text = makeText(font, 'find ice; M is for music');
+  text = Sprite.makeText(font, 'find ice; M is for music', new Mat3(),
+                         Mat3.makeTranslate(10, 10));
   const spriteTexture = makeTexture(assets.sprites);
-  const quad = makeQuad(spriteTexture);
+  const smiley = Sprite.makeQuad(spriteTexture, Mat3.makeScale(48, 48));
 
-  const smiley = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
-  const smileyBlink = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
+  const smileyTexMat = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
+  const smileyBlinkTexMat = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
 
-  let textMat = (new Mat3()).setTranslate(10, 10);
-  let smileMat = (new Mat3()).setScale(48, 48);
   let camMatGame = new Mat3();
   let camX = 0, camY = 0;
 
@@ -684,16 +693,18 @@ async function start() {
       }
 
       camMatGame.setTranslate(-camX, -camY);
-      smileMat.setTranslate(smilepos.x, smilepos.y);
+      smiley.objMat.setTranslate(smilepos.x, smilepos.y);
     }
 
     camMat = camMatGame;
     draw(level.sprite, shader);
 
-    draw(quad, shader, smileMat, Math.random() < 0.01 ? smileyBlink : smiley);
+    // Blink anim
+    smiley.texMat = Math.random() < 0.01 ? smileyBlinkTexMat : smileyTexMat;
+    draw(smiley, shader);
 
     camMat = mat3Id;
-    draw(text, shader, textMat);
+    draw(text, shader);
   }
   requestAnimationFrame(tick);
 };

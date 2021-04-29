@@ -20,8 +20,11 @@ let assets = {
   sprites: {filename: 'sprites.png', type: 'image', data: null},
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
+
   level: {filename: 'testing.json', type: 'json', data: null},
+
   boom: {filename: 'boom.mp3', type: 'audio', data: null},
+  doots: {filename: 'doots.wav', type: 'audio', data: null},
 };
 
 function loadImage(filename) {
@@ -306,6 +309,11 @@ function onKeyDown(event) {
       playSound(assets.boom);
       break;
 
+    case 'm':
+      assets.doots.data.play();
+      assets.doots.data.volume = 1 - assets.doots.data.volume;
+      break;
+
     case 'ArrowLeft':
       ddsmile.x = -accel;
       break;
@@ -531,10 +539,14 @@ let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
 async function start() {
   await loadAssets();
 
+  // music should loop
+  assets.doots.data.loop = true;
+  assets.doots.data.volume = 0; // set to 0 so first M press will set to 1
+
   initGl();
   const shader = makeTextureShader();
   font = makeFont();
-  text = makeText(font, 'find ice');
+  text = makeText(font, 'find ice; M is for music');
   const spriteTexture = makeTexture(assets.sprites);
   const quad = makeQuad(spriteTexture);
 

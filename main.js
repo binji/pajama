@@ -21,7 +21,8 @@ let assets = {
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
 
-  level: {filename: 'testing.json', type: 'json', data: null},
+  testing: {filename: 'testing.json', type: 'level', data: null, depends: ['tiles']},
+  tiny: {filename: 'tiny.json', type: 'level', data: null, depends: ['tiles']},
 
   boom: {filename: 'boom.mp3', type: 'audio', data: null},
   doots: {filename: 'doots.wav', type: 'audio', data: null},
@@ -49,35 +50,180 @@ function loadAudio(filename) {
   return audio;
 }
 
-async function loadAssets() {
-  let promises = [];
-  for (let name of Object.keys(assets)) {
-    let asset = assets[name];
-    switch (asset.type) {
-      case 'image':
-        promises.push((async () => {
-          let image = await loadImage(asset.filename);
-          asset.data = image;
-        })());
-        break;
+async function loadLevel(filename) {
+  let response = await fetch(filename);
+  let json = await response.json();
 
-      case 'json':
-        promises.push((async () => {
-          let json = await loadJson(asset.filename);
-          asset.data = json;
-        })());
-        break;
+  let level = {
+    data: json,
+    sprite: {
+      first: 0,
+      count: 0,
+      width: 0,
+      height: 0,
+    },
+    tiles: {},
+    triggers: [],
+    startPos: {x: 0, y: 0},
+    stairPos: {x: 0, y: 0},
+    width: 0,
+    height: 0,
+  };
 
-      case 'audio':
-        promises.push((async () => {
-          let audio = loadAudio(asset.filename);
-          asset.data = audio;
-        })());
-        break;
+  if (level.data.tilesets.length != 1) { throw 'no'; }
+
+  // preprocess tileset data for ease of lookup later
+  let tileset = level.data.tilesets[0];
+  const strideu = (tileset.tilewidth + tileset.spacing) / tileset.imagewidth;
+  const stridev = (tileset.tileheight + tileset.spacing) / tileset.imageheight;
+  const marginu = tileset.margin / tileset.imagewidth;
+  const marginv = tileset.margin / tileset.imageheight;
+
+  for (let gid = tileset.firstgid; gid < tileset.firstgid + tileset.tilecount; ++gid) {
+    const u = ((gid - tileset.firstgid) % tileset.columns) * strideu + marginu;
+    const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
+    level.tiles[gid] = {u, v};
+  }
+  level.sprite.texture = makeTexture(assets.tiles);
+
+  // generate render buffer
+  for (let layer of level.data.layers) {
+    if (layer.type != 'tilelayer') continue;
+    level.width = Math.max(level.width, layer.width * tileset.tilewidth);
+    level.height = Math.max(level.height, layer.height * tileset.tileheight);
+    for (let tile of layer.data) {
+      if (tile != 0) {
+        level.sprite.count += 6;
+      }
     }
   }
 
-  await Promise.all(promises);
+  level.sprite.buffer = gl.createBuffer();
+
+  const dx = 48;
+  const dy = 48;
+  const du = tileset.tilewidth / tileset.imagewidth;
+  const dv = tileset.tileheight / tileset.imageheight;
+  const data = new Float32Array(level.sprite.count * 4);
+  let p = 0;
+
+  for (let layer of level.data.layers) {
+    if (layer.type != 'tilelayer') continue;
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < layer.data.length; ++i) {
+      let gid = layer.data[i];
+      if (gid != 0) {
+        const x = (i % layer.width) * dx;
+        const y = Math.floor(i / layer.width) * dy;
+        const {u, v} = level.tiles[gid];
+        setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
+        p++;
+      }
+    }
+  }
+
+  // Handle object layer
+  for (let layer of level.data.layers) {
+    if (layer.type != 'objectgroup') continue;
+
+    for (let object of layer.objects) {
+      switch (object.type) {
+        case 'player':
+          level.startPos.x = object.x;
+          level.startPos.y = object.y;
+          break;
+
+        case 'message':
+          level.triggers.push({
+            type: 'message',
+            x: object.x, y: object.y,
+            w: object.width, h: object.height,
+            message: object.properties[0].value,
+          });
+          break;
+
+        case 'stairs':
+          level.triggers.push({
+            type: 'stairs',
+            x: object.x, y: object.y,
+            w: object.width, h: object.height,
+            dest: object.properties[0].value,
+          });
+          break;
+
+        case 'stairpos':
+          level.stairPos.x = object.x;
+          level.stairPos.y = object.y;
+          break;
+
+        default:
+          throw 'what';
+      }
+    }
+  }
+
+  gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
+  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
+
+  return level;
+}
+
+async function loadAssets() {
+  while (true) {
+    let promises = [];
+    for (let name of Object.keys(assets)) {
+      let asset = assets[name];
+
+      // Skip this asset if its dependies aren't loaded
+      let hasMissingDeps = false;
+      if (asset.depends) {
+        for (let depend of asset.depends) {
+          if (assets[depend].data == null) {
+            hasMissingDeps = true;
+            break;
+          }
+        }
+      }
+
+      // Skip this asset if it is already loaded
+      if (asset.data != null || hasMissingDeps) continue;
+
+      switch (asset.type) {
+        case 'image':
+          promises.push((async () => {
+            let image = await loadImage(asset.filename);
+            asset.data = image;
+          })());
+          break;
+
+        case 'json':
+          promises.push((async () => {
+            let json = await loadJson(asset.filename);
+            asset.data = json;
+          })());
+          break;
+
+        case 'audio':
+          promises.push((async () => {
+            let audio = loadAudio(asset.filename);
+            asset.data = audio;
+          })());
+          break;
+
+        case 'level':
+          promises.push((async () => {
+            let json = await loadLevel(asset.filename);
+            asset.data = json;
+          })());
+          break;
+      }
+    }
+
+    if (promises.length == 0) break;
+
+    await Promise.all(promises);
+  }
 }
 
 //------------------------------------------------------------------------------
@@ -343,103 +489,7 @@ function onKeyUp(event) {
   }
 }
 
-let level = {
-  data : null,
-  tiles : {},
-  sprite : null,
-  width: 0,
-  height: 0,
-  messages: [],
-};
-function loadLevel() {
-  level.data = assets.level.data;
-  level.sprite = {};
-
-  if (level.data.tilesets.length != 1) { throw 'no'; }
-
-  // preprocess tileset data for ease of lookup later
-  let tileset = level.data.tilesets[0];
-  const strideu = (tileset.tilewidth + tileset.spacing) / tileset.imagewidth;
-  const stridev = (tileset.tileheight + tileset.spacing) / tileset.imageheight;
-  const marginu = tileset.margin / tileset.imagewidth;
-  const marginv = tileset.margin / tileset.imageheight;
-
-  for (let gid = tileset.firstgid; gid < tileset.firstgid + tileset.tilecount; ++gid) {
-    const u = ((gid - tileset.firstgid) % tileset.columns) * strideu + marginu;
-    const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
-    level.tiles[gid] = {u, v};
-  }
-  level.sprite.texture = makeTexture(assets.tiles);
-
-  // generate render buffer
-  level.sprite.first = 0;
-  level.sprite.count = 0;
-  level.width = 0;
-  level.height = 0;
-  for (let layer of level.data.layers) {
-    if (layer.type != 'tilelayer') continue;
-    level.width = Math.max(level.width, layer.width) * tileset.tilewidth;
-    level.height = Math.max(level.height, layer.height) * tileset.tileheight;
-    for (let tile of layer.data) {
-      if (tile != 0) {
-        level.sprite.count += 6;
-      }
-    }
-  }
-
-  level.sprite.buffer = gl.createBuffer();
-
-  const dx = 48;
-  const dy = 48;
-  const du = tileset.tilewidth / tileset.imagewidth;
-  const dv = tileset.tileheight / tileset.imageheight;
-  const data = new Float32Array(level.sprite.count * 4);
-  let p = 0;
-
-  for (let layer of level.data.layers) {
-    if (layer.type != 'tilelayer') continue;
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < layer.data.length; ++i) {
-      let gid = layer.data[i];
-      if (gid != 0) {
-        const x = (i % layer.width) * dx;
-        const y = Math.floor(i / layer.width) * dy;
-        const {u, v} = level.tiles[gid];
-        setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
-        p++;
-      }
-    }
-  }
-
-  // Handle object layer
-  for (let layer of level.data.layers) {
-    if (layer.type != 'objectgroup') continue;
-
-    for (let object of layer.objects) {
-      switch (object.type) {
-        case 'player':
-          smilepos.x = object.x;
-          smilepos.y = object.y;
-          break;
-
-        case 'message':
-          level.messages.push({
-            x: object.x, y: object.y,
-            w: object.width, h: object.height,
-            message: object.properties[0].value,
-          });
-          break;
-
-        default:
-          throw 'what';
-      }
-    }
-  }
-
-  gl.bindBuffer(gl.ARRAY_BUFFER, level.sprite.buffer);
-  gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW);
-}
+let level;
 
 //------------------------------------------------------------------------------
 // Collision detection
@@ -481,7 +531,7 @@ function smileyCollision() {
   let rad2 = rad * rad;
   let tx = Math.floor(px / 48);
   let ty = Math.floor(py / 48);
-  let layer = assets.level.data.layers[1];
+  let layer = level.data.layers[1];
 
   function getCell(x, y) {
     if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) { return 0; }
@@ -519,12 +569,22 @@ function smileyCollision() {
 let font;
 let text;
 
-function smileyMessages() {
-  for (let message of level.messages) {
-    if (smilepos.x >= message.x && smilepos.x < message.x + message.w &&
-        smilepos.y >= message.y && smilepos.y < message.y + message.h) {
-      destroyText(text);
-      text = makeText(font, message.message);
+function smileyTriggers() {
+  for (let trigger of level.triggers) {
+    if (smilepos.x >= trigger.x && smilepos.x < trigger.x + trigger.w &&
+        smilepos.y >= trigger.y && smilepos.y < trigger.y + trigger.h) {
+      switch (trigger.type) {
+        case 'message':
+          destroyText(text);
+          text = makeText(font, trigger.message);
+          break;
+
+        case 'stairs':
+          level = assets[trigger.dest].data;
+          smilepos.x = level.stairPos.x;
+          smilepos.y = level.stairPos.y;
+          break;
+      }
       break;
     }
   }
@@ -537,13 +597,18 @@ let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
                   t:SCREEN_HEIGHT * 0.35, b:SCREEN_HEIGHT * 0.65};
 
 async function start() {
+  initGl();
+
   await loadAssets();
+
+  level = assets.testing.data;
+  smilepos.x = level.startPos.x;
+  smilepos.y = level.startPos.y;
 
   // music should loop
   assets.doots.data.loop = true;
   assets.doots.data.volume = 0; // set to 0 so first M press will set to 1
 
-  initGl();
   const shader = makeTextureShader();
   font = makeFont();
   text = makeText(font, 'find ice; M is for music');
@@ -555,8 +620,6 @@ async function start() {
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
-
-  loadLevel();
 
   let camUI = {x: 0, y: 0};
   let camGame = {x: 0, y: 0};
@@ -583,7 +646,7 @@ async function start() {
       smilepos.y += dsmile.y;
 
       smileyCollision();
-      smileyMessages();
+      smileyTriggers();
 
       if (smilepos.x - camGame.x < camPushBox.l) {
         camGame.x = Math.max(0, smilepos.x - camPushBox.l);

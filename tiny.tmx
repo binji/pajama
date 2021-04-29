@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="16" height="16" tilewidth="48" tileheight="48" infinite="0" nextlayerid="4" nextobjectid="6">
+ <editorsettings>
+  <export target="tiny.json" format="json"/>
+ </editorsettings>
+ <tileset firstgid="1" name="tiles" tilewidth="48" tileheight="48" spacing="2" margin="1" tilecount="100" columns="10">
+  <image source="tiles.png" trans="ff00ff" width="512" height="512"/>
+ </tileset>
+ <layer id="1" name="BG" width="16" height="16">
+  <data encoding="csv">
+12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,
+12,2,2,2,2,2,2,2,2,2,2,2,2,2,2,12,
+12,2,5,4,4,4,4,4,4,4,4,4,4,4,2,12,
+12,2,3,3,3,3,3,3,3,3,3,3,3,4,2,12,
+12,2,4,4,4,4,4,4,4,4,4,4,3,4,2,12,
+12,2,4,3,4,3,3,3,3,3,3,4,3,4,2,12,
+12,2,4,3,4,3,4,4,4,3,3,4,3,4,2,12,
+12,2,4,3,4,3,4,3,4,3,3,4,3,4,2,12,
+12,2,4,3,4,3,4,3,4,3,3,4,3,4,2,12,
+12,2,4,3,4,3,4,3,4,4,4,4,3,4,2,12,
+12,2,4,3,4,3,4,3,3,3,3,4,3,4,2,12,
+12,2,4,3,3,3,4,4,4,4,4,4,3,4,2,12,
+12,2,4,3,3,3,3,3,3,3,3,3,3,4,2,12,
+12,2,4,4,4,4,4,4,4,4,4,4,4,4,2,12,
+12,2,2,2,2,2,2,2,2,2,2,2,2,2,2,12,
+12,12,12,12,12,12,12,12,12,12,12,12,12,12,12,12
+</data>
+ </layer>
+ <layer id="2" name="Collision" width="16" height="16">
+  <data encoding="csv">
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
+0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,
+0,1,1,1,1,1,1,1,1,1,1,1,1,0,1,0,
+0,1,0,0,0,0,0,0,0,0,0,0,1,0,1,0,
+0,1,0,1,0,1,1,1,1,1,1,0,1,0,1,0,
+0,1,0,1,0,1,0,0,0,0,1,0,1,0,1,0,
+0,1,0,1,0,1,0,1,0,1,1,0,1,0,1,0,
+0,1,0,1,0,1,0,1,0,1,1,0,1,0,1,0,
+0,1,0,1,0,1,0,1,0,0,0,0,1,0,1,0,
+0,1,0,1,0,1,0,1,1,1,1,0,1,0,1,0,
+0,1,0,1,0,1,0,0,0,0,0,0,1,0,1,0,
+0,1,0,1,1,1,1,1,1,1,1,1,1,0,1,0,
+0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,0,
+0,1,1,1,1,1,1,1,1,1,1,1,1,1,1,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
+</data>
+ </layer>
+ <objectgroup id="3" name="Objects">
+  <object id="1" type="message" x="441.895" y="289.829" width="33.1233" height="39.1457">
+   <properties>
+    <property name="message" value="YOU WIN LIFE"/>
+   </properties>
+  </object>
+  <object id="2" type="message" x="197.234" y="535.995" width="36.1345" height="34.6289">
+   <properties>
+    <property name="message" value="ERROR"/>
+   </properties>
+  </object>
+  <object id="3" type="stairs" x="102.381" y="98.6171" width="34.6289" height="37.6401">
+   <properties>
+    <property name="dest" value="testing"/>
+   </properties>
+  </object>
+  <object id="5" type="stairpos" x="162.605" y="125.718">
+   <point/>
+  </object>
+ </objectgroup>
+</map>

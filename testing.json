@@ -29,13 +29,172 @@
          "name":"Collision",
          "opacity":1,
          "type":"tilelayer",
-         "visible":false,
+         "visible":true,
          "width":32,
          "x":0,
          "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":3,
+         "name":"Objects",
+         "objects":[
+                {
+                 "height":0,
+                 "id":1,
+                 "name":"",
+                 "point":true,
+                 "rotation":0,
+                 "type":"player",
+                 "visible":true,
+                 "width":0,
+                 "x":165.585823856123,
+                 "y":217.331393811161
+                }, 
+                {
+                 "height":72.4437979370537,
+                 "id":5,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"nice job"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":81.3144670722031,
+                 "x":149.322930441682,
+                 "y":538.153927532399
+                }, 
+                {
+                 "height":68.008463369479,
+                 "id":6,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"keep going"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":69.4869082253372,
+                 "x":300.559640306797,
+                 "y":782.575773604866
+                }, 
+                {
+                 "height":26.6120074054481,
+                 "id":7,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"too easy"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":78.3575773604866,
+                 "x":634.252843163184,
+                 "y":1117.70431102883
+                }, 
+                {
+                 "height":63.5731288019043,
+                 "id":8,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"little better"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":76.8791325046284,
+                 "x":1259.63501719122,
+                 "y":832.364453848188
+                }, 
+                {
+                 "height":66.5300185136207,
+                 "id":9,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"try again"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":65.0515736577624,
+                 "x":1216.76011637133,
+                 "y":589.899497487437
+                }, 
+                {
+                 "height":29.5688971171648,
+                 "id":10,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"so tiny"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":32.5257868288813,
+                 "x":1159.10076699286,
+                 "y":390.309441946575
+                }, 
+                {
+                 "height":65.0515736577625,
+                 "id":11,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"sweet peas"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":25.13356254959,
+                 "x":542.589262099974,
+                 "y":156.715154720973
+                }, 
+                {
+                 "height":23.6551176937318,
+                 "id":12,
+                 "name":"",
+                 "properties":[
+                        {
+                         "name":"message",
+                         "type":"string",
+                         "value":"groovy doodle"
+                        }],
+                 "rotation":0,
+                 "type":"message",
+                 "visible":true,
+                 "width":28.0904522613065,
+                 "x":637.209732874901,
+                 "y":205.503834964295
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
         }],
- "nextlayerid":3,
- "nextobjectid":1,
+ "nextlayerid":4,
+ "nextobjectid":13,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.6.0",

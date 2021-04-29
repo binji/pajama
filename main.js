@@ -212,6 +212,10 @@ function makeText(font, str, x = 0, y = 0) {
   return {first: 0, count, buffer, texture: font.texture};
 }
 
+function destroyText(sprite) {
+  gl.deleteBuffer(sprite.buffer);
+}
+
 function makeTextureShader() {
   const vertexShader = compileShader(gl.VERTEX_SHADER,
      `uniform vec2 uPos;
@@ -337,6 +341,7 @@ let level = {
   sprite : null,
   width: 0,
   height: 0,
+  messages: [],
 };
 function loadLevel() {
   level.data = assets.level.data;
@@ -364,6 +369,7 @@ function loadLevel() {
   level.width = 0;
   level.height = 0;
   for (let layer of level.data.layers) {
+    if (layer.type != 'tilelayer') continue;
     level.width = Math.max(level.width, layer.width) * tileset.tilewidth;
     level.height = Math.max(level.height, layer.height) * tileset.tileheight;
     for (let tile of layer.data) {
@@ -383,6 +389,7 @@ function loadLevel() {
   let p = 0;
 
   for (let layer of level.data.layers) {
+    if (layer.type != 'tilelayer') continue;
     let x = 0;
     let y = 0;
     for (let i = 0; i < layer.data.length; ++i) {
@@ -393,6 +400,31 @@ function loadLevel() {
         const {u, v} = level.tiles[gid];
         setTileCoord(data, p, x, y, u, v, dx, dy, du, dv);
         p++;
+      }
+    }
+  }
+
+  // Handle object layer
+  for (let layer of level.data.layers) {
+    if (layer.type != 'objectgroup') continue;
+
+    for (let object of layer.objects) {
+      switch (object.type) {
+        case 'player':
+          smilepos.x = object.x;
+          smilepos.y = object.y;
+          break;
+
+        case 'message':
+          level.messages.push({
+            x: object.x, y: object.y,
+            w: object.width, h: object.height,
+            message: object.properties[0].value,
+          });
+          break;
+
+        default:
+          throw 'what';
       }
     }
   }
@@ -476,6 +508,20 @@ function smileyCollision() {
   smilepos.y = py;
 }
 
+let font;
+let text;
+
+function smileyMessages() {
+  for (let message of level.messages) {
+    if (smilepos.x >= message.x && smilepos.x < message.x + message.w &&
+        smilepos.y >= message.y && smilepos.y < message.y + message.h) {
+      destroyText(text);
+      text = makeText(font, message.message);
+      break;
+    }
+  }
+}
+
 //------------------------------------------------------------------------------
 
 let cam;
@@ -487,8 +533,8 @@ async function start() {
 
   initGl();
   const shader = makeTextureShader();
-  const font = makeFont();
-  const text = makeText(font, 'blink smiley');
+  font = makeFont();
+  text = makeText(font, 'find ice');
   const spriteTexture = makeTexture(assets.sprites);
   const quad = makeQuad(spriteTexture);
 
@@ -525,6 +571,7 @@ async function start() {
       smilepos.y += dsmile.y;
 
       smileyCollision();
+      smileyMessages();
 
       if (smilepos.x - camGame.x < camPushBox.l) {
         camGame.x = Math.max(0, smilepos.x - camPushBox.l);

@@ -2,6 +2,7 @@ const SCREEN_WIDTH = 480;
 const SCREEN_HEIGHT = 270;
 const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
+const TILE_SIZE = 48;
 
 let gl;
 
@@ -56,6 +57,7 @@ class VertexBuffer {
 
   reset() {
     this.data.length = 0;
+    this.count = 0;
   }
 
   push(x, y, u, v) {
@@ -72,9 +74,9 @@ class VertexBuffer {
     this.push(x + dx, y + dy, u + du, v + dv); // BR
   }
 
-  upload() {
+  upload(usage = gl.STATIC_DRAW) {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.glbuf);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.data), gl.STATIC_DRAW);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(this.data), usage);
   }
 };
 
@@ -129,6 +131,38 @@ class Sprite {
     }
     vb.upload();
     return new Sprite(vb, font.texture, objMat, texMat);
+  }
+}
+
+
+function getSpriteTexPos(index) {
+  const margin = 1;
+  const spacing = 2;
+  const columns = 10;
+
+  return {
+    x: ((index % columns) * (TILE_SIZE + spacing) + margin) / TEX_WIDTH,
+    y: (Math.floor(index / columns) * (TILE_SIZE + spacing) + margin) / TEX_HEIGHT
+  };
+}
+
+class SpriteBatch {
+  constructor(texture) {
+    this.sprite = Sprite.makeEmptyBuffer(texture);
+  }
+
+  reset() {
+    this.sprite.buffer.reset();
+  }
+
+  pushFrame(x, y, frame, dx = TILE_SIZE, dy = TILE_SIZE,
+            du = TILE_SIZE / TEX_WIDTH, dv = TILE_SIZE / TEX_HEIGHT) {
+    let {x: u, y: v} = getSpriteTexPos(frame);
+    this.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
+  }
+
+  upload() {
+    this.sprite.buffer.upload(gl.DYNAMIC_DRAW);
   }
 }
 
@@ -208,10 +242,14 @@ async function loadLevel(filename) {
     level.height = Math.max(level.height, layer.height * tileset.tileheight);
   }
 
-  const dx = 48;
-  const dy = 48;
-  const du = tileset.tilewidth / tileset.imagewidth;
-  const dv = tileset.tileheight / tileset.imageheight;
+  if (tileset.tilewidth != TILE_SIZE || tileset.tileheight != TILE_SIZE) {
+    throw 'why';
+  }
+
+  const dx = TILE_SIZE;
+  const dy = TILE_SIZE;
+  const du = TILE_SIZE / tileset.imagewidth;
+  const dv = TILE_SIZE / tileset.imageheight;
 
   for (let layer of level.data.layers) {
     if (layer.type != 'tilelayer') continue;
@@ -360,18 +398,6 @@ function makeTexture(asset) {
 
   uploadTex(texture, asset.data);
   return texture;
-}
-
-function getSpriteTexPos(index) {
-  const margin = 1;
-  const spacing = 2;
-  const tileSize = 48;
-  const columns = 10;
-
-  return {
-    x: ((index % columns) * (tileSize + spacing) + margin) / TEX_WIDTH,
-    y: (Math.floor(index / columns) * (tileSize + spacing) + margin) / TEX_HEIGHT
-  };
 }
 
 function makeTexMat3x3(texPos, w, h) {
@@ -540,10 +566,10 @@ function distToLineSegment2(px, py, v0x, v0y, v1x, v1y) {
 
 function smileyCollision() {
   const boxSegs = [
-    {x0: 0, y0: 0, x1: 48, y1: 0},  // top
-    {x0: 0, y0: 0, x1: 0, y1: 48},  // left
-    {x0: 0, y0: 48, x1: 48, y1: 48},  // bottom
-    {x0: 48, y0: 0, x1: 48, y1: 48},  // right
+    {x0: 0, y0: 0, x1: TILE_SIZE, y1: 0},                  // top
+    {x0: 0, y0: 0, x1: 0, y1: TILE_SIZE},                  // left
+    {x0: 0, y0: TILE_SIZE, x1: TILE_SIZE, y1: TILE_SIZE},  // bottom
+    {x0: TILE_SIZE, y0 : 0, x1: TILE_SIZE, y1: TILE_SIZE}, // right
   ];
   const dirs = [
     {x: -1, y: -1},
@@ -559,8 +585,8 @@ function smileyCollision() {
   let py = smilepos.y;
   let rad = 22; // a little less than tile width / 2
   let rad2 = rad * rad;
-  let tx = Math.floor(px / 48);
-  let ty = Math.floor(py / 48);
+  let tx = Math.floor(px / TILE_SIZE);
+  let ty = Math.floor(py / TILE_SIZE);
   let layer = level.data.layers[1];
 
   function getCell(x, y) {
@@ -573,8 +599,8 @@ function smileyCollision() {
     if (!tile) continue;
 
     for (let seg of boxSegs) {
-      let left = (tx + dir.x) * 48;
-      let top = (ty + dir.y) * 48;
+      let left = (tx + dir.x) * TILE_SIZE;
+      let top = (ty + dir.y) * TILE_SIZE;
       let {dist2, ix, iy} = distToLineSegment2(
         px, py,
         seg.x0 + left, seg.y0 + top,
@@ -621,6 +647,51 @@ function smileyTriggers() {
   }
 }
 
+
+class Bouncies {
+  constructor(texture) {
+    this.batch = new SpriteBatch(texture);
+    this.objs = [];
+    for (let i = 0; i < 100; ++i) {
+      this.objs.push({
+        x: Math.random() * assets.testing.data.width,
+        y: Math.random() * assets.testing.data.height,
+        dx: Math.random() * 2 - 1,
+        dy: Math.random() * 2 - 1,
+        size: (Math.random() * 40) + 8,
+        frame: Math.floor(Math.random() * 2) + 2,
+      });
+    }
+  }
+
+  update() {
+    for (let obj of this.objs) {
+      obj.x += obj.dx;
+      obj.y += obj.dy;
+
+      if (obj.x < obj.size || obj.x > level.width - obj.size) {
+        obj.x = clamp(obj.size, obj.x + obj.dx, level.width - obj.size);
+        obj.dx = -obj.dx;
+      }
+
+      if (obj.y < obj.size || obj.y > level.height - obj.size) {
+        obj.y = clamp(obj.size, obj.y + obj.dy, level.height - obj.size);
+        obj.dy = -obj.dy;
+      }
+    }
+  }
+
+  draw(shader) {
+    this.batch.reset();
+    for (let obj of this.objs) {
+      this.batch.pushFrame(obj.x, obj.y, obj.frame, obj.size, obj.size);
+    }
+    this.batch.upload();
+    draw(this.batch.sprite, shader);
+  }
+}
+
+
 //------------------------------------------------------------------------------
 
 let camMat;
@@ -645,10 +716,14 @@ async function start() {
   text = Sprite.makeText(font, 'find ice; M is for music', new Mat3(),
                          Mat3.makeTranslate(10, 10));
   const spriteTexture = makeTexture(assets.sprites);
-  const smiley = Sprite.makeQuad(spriteTexture, Mat3.makeScale(48, 48));
+  const smiley =
+      Sprite.makeQuad(spriteTexture, Mat3.makeScale(TILE_SIZE, TILE_SIZE));
 
-  const smileyTexMat = makeTexMat3x3(getSpriteTexPos(0), 48, 48);
-  const smileyBlinkTexMat = makeTexMat3x3(getSpriteTexPos(1), 48, 48);
+  const smileyTexMat = makeTexMat3x3(getSpriteTexPos(0), TILE_SIZE, TILE_SIZE);
+  const smileyBlinkTexMat =
+      makeTexMat3x3(getSpriteTexPos(1), TILE_SIZE, TILE_SIZE);
+
+  const bouncies = new Bouncies(spriteTexture);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
@@ -694,10 +769,14 @@ async function start() {
 
       camMatGame.setTranslate(-camX, -camY);
       smiley.objMat.setTranslate(smilepos.x, smilepos.y);
+
+      bouncies.update();
     }
 
     camMat = camMatGame;
     draw(level.sprite, shader);
+
+    bouncies.draw(shader);
 
     // Blink anim
     smiley.texMat = Math.random() < 0.01 ? smileyBlinkTexMat : smileyTexMat;

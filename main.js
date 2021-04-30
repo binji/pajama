@@ -25,6 +25,10 @@ function rand(lo, hi) {
   return Math.random() * (hi - lo) + lo;
 }
 
+function randInt(lo, hi) {
+  return Math.floor(rand(lo, hi));
+}
+
 class Mat3 {
   constructor() {
     this.m = new Float32Array(9);
@@ -749,7 +753,7 @@ class Smiley {
       if (--this.blinkTimer < 0) {
         this.frame = this.baseFrame + 1;
         if (this.blinkTimer < -5) {
-          this.blinkTimer = Math.floor(Math.random() * 100 + 30);
+          this.blinkTimer = randInt(30, 130);
         }
       }
     }
@@ -861,12 +865,12 @@ class Bouncies {
     this.objs = [];
     for (let i = 0; i < 100; ++i) {
       this.objs.push({
-        x: Math.random() * assets.testing.data.width,
-        y: Math.random() * assets.testing.data.height,
-        dx: Math.random() * 2 - 1,
-        dy: Math.random() * 2 - 1,
-        size: (Math.random() * 40) + 8,
-        frame: Math.floor(Math.random() * 2) + 2,
+        x: rand(assets.testing.data.width),
+        y: rand(assets.testing.data.height),
+        dx: rand(-1, 1),
+        dy: rand(-1, 1),
+        size: rand(8, 48),
+        frame: randInt(2, 4),
       });
     }
   }

@@ -859,6 +859,59 @@ class Smiley {
   }
 };
 
+//------------------------------------------------------------------------------
+// Camera
+
+class Camera {
+  constructor() {
+    this.x = 0;
+    this.y = 0;
+    this.lastX = 0;
+    this.lastY = 0;
+    this.zoom = 1;
+    this.lastZoom = 1;
+    this.mat = new Mat3();
+
+  }
+
+  update() {
+    const pushBox = {
+      l : SCREEN_WIDTH * 0.25,
+      r : SCREEN_WIDTH * 0.75,
+      t : SCREEN_HEIGHT * 0.35,
+      b : SCREEN_HEIGHT * 0.65
+    };
+
+    this.lastX = this.x;
+    this.lastY = this.y;
+    this.lastZoom = this.zoom;
+
+    if (smiley.x - this.x < pushBox.l) {
+      this.x = Math.max(0, smiley.x - pushBox.l);
+    } else if (smiley.x - this.x > pushBox.r) {
+      this.x = Math.min(level.width - SCREEN_WIDTH, smiley.x - pushBox.r);
+    }
+
+    if (smiley.y - this.y < pushBox.t) {
+      this.y = Math.max(0, smiley.y - pushBox.t);
+    } else if (smiley.y - this.y > pushBox.b) {
+      this.y = Math.min(level.height - SCREEN_HEIGHT, smiley.y - pushBox.b);
+    }
+
+    this.zoom = shiftHeld ? 1.2 : 1.0;
+  }
+
+  draw(dt) {
+    let zoomPosX = smiley.x - this.x;
+    let zoomPosY = smiley.y - this.y;
+
+    let curZoom = this.zoom - (this.zoom - this.lastZoom) * dt;
+    this.mat.setTranslate(
+        -(this.x - (this.x - this.lastX) * dt + zoomPosX) * curZoom + zoomPosX,
+        -(this.y - (this.y - this.lastY) * dt + zoomPosY) * curZoom + zoomPosY);
+    this.mat.setScale(curZoom, curZoom);
+  }
+};
 
 //------------------------------------------------------------------------------
 // Bouncies
@@ -911,8 +964,6 @@ class Bouncies {
 //------------------------------------------------------------------------------
 
 let camMat;
-let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
-                  t:SCREEN_HEIGHT * 0.35, b:SCREEN_HEIGHT * 0.65};
 
 async function start() {
   initGl();
@@ -933,11 +984,7 @@ async function start() {
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
 
-  let camMatGame = new Mat3();
-  let camX = 0, camY = 0;
-  let lastCamX = 0, lastCamY = 0;
-  let camZoom = 1, lastCamZoom = 1;
-
+  let camera = new Camera();
   let particles = new ParticleSystem();
 
   const updateMs = 16.6;
@@ -976,51 +1023,26 @@ async function start() {
             r: rand(64, 92), g: rand(132, 194), b: rand(202, 255),
             life: 840,
           });
-        }        
+        }
       }
 
-      lastCamX = camX;
-      lastCamY = camY;
-      lastCamZoom = camZoom;
-      if (smiley.x - camX < camPushBox.l) {
-        camX = Math.max(0, smiley.x - camPushBox.l);
-      } else if (smiley.x - camX > camPushBox.r) {
-        camX = Math.min(level.width - SCREEN_WIDTH, smiley.x - camPushBox.r);
-      }
-
-      if (smiley.y - camY < camPushBox.t) {
-        camY = Math.max(0, smiley.y - camPushBox.t);
-      } else if (smiley.y - camY > camPushBox.b) {
-        camY = Math.min(level.height - SCREEN_HEIGHT, smiley.y - camPushBox.b);
-      }
-
-      camZoom = shiftHeld ? 1.2 : 1.0;
-
+      camera.update();
       bouncies.update();
       particles.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
 
-    let camZoomPosX = smiley.x - camX;
-    let camZoomPosY = smiley.y - camY;
+    camera.draw(dt);
 
-    let curCamZoom = camZoom - (camZoom - lastCamZoom) * dt;
-    camMatGame.setTranslate(
-        -(camX - (camX - lastCamX) * dt + camZoomPosX) * curCamZoom +
-            camZoomPosX,
-        -(camY - (camY - lastCamY) * dt + camZoomPosY) * curCamZoom +
-            camZoomPosY);
-    camMatGame.setScale(curCamZoom, curCamZoom);
-
-    camMat = camMatGame;
+    camMat = camera.mat;
     draw(level.sprite, shader);
 
     bouncies.draw(shader, dt);
     smiley.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
-    particles.draw(shader, camX, camY, dt);
+    particles.draw(shader, camera.x, camera.y, dt);
 
     camMat = mat3Id;
     draw(text, shader);

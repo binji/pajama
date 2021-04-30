@@ -488,7 +488,7 @@ class ParticleSystem {
     }
   }
 
-  draw(shader, camX, camY) {
+  draw(shader, camX, camY, dt) {
     // clear alpha byte
     for (let i = 3; i < this.texBuffer.length; i += 4) {
       // or do a blur effect, either way
@@ -496,8 +496,8 @@ class ParticleSystem {
     }
 
     for (let p of this.particles) {
-      let x = p.x - camX;
-      let y = p.y - camY;
+      let x = p.x - p.dx * dt - camX;
+      let y = p.y - p.dy * dt - camY;
       if (x < 0 || x >= TEX_WIDTH || y < 0 || y >= TEX_HEIGHT) {
         continue;
       }
@@ -849,9 +849,13 @@ class Smiley {
     this.doCollision();
     this.doTriggers();
 
-    this.sprite.objMat.setTranslate(this.x, this.y);
     let texPos = getSpriteTexPos(this.frame);
     this.sprite.texMat.setTranslate(texPos.x, texPos.y);
+  }
+
+  draw(shader, dt) {
+    this.sprite.objMat.setTranslate(this.x - this.dx * dt, this.y - this.dy * dt);
+    draw(smiley.sprite, shader);
   }
 };
 
@@ -892,10 +896,11 @@ class Bouncies {
     }
   }
 
-  draw(shader) {
+  draw(shader, dt) {
     this.batch.reset();
     for (let obj of this.objs) {
-      this.batch.pushFrame(obj.x, obj.y, obj.frame, obj.size, obj.size);
+      this.batch.pushFrame(obj.x - obj.dx * dt, obj.y - obj.dy * dt, obj.frame,
+                           obj.size, obj.size);
     }
     this.batch.upload();
     draw(this.batch.sprite, shader);
@@ -989,15 +994,16 @@ async function start() {
       particles.update();
     }
 
+    let dt = 1 - updateRemainder / updateMs;
+
     camMat = camMatGame;
     draw(level.sprite, shader);
 
-    bouncies.draw(shader);
-
-    draw(smiley.sprite, shader);
+    bouncies.draw(shader, dt);
+    smiley.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
-    particles.draw(shader, camX, camY);
+    particles.draw(shader, camX, camY, dt);
 
     camMat = mat3Id;
     draw(text, shader);

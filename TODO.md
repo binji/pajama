@@ -1,5 +1,5 @@
-- [ ] Particles
+- [x] Particles
 - [x] Loading multiple levels
-- [ ] Sprite class
+- [x] Sprite class
 - [ ] Dialog boxes
-- [ ] Sprite Animation
+- [x] Sprite Animation

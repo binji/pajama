@@ -1,6 +1,6 @@
 - [x] Particles
-  - [ ] Lifetime
-  - [ ] Trigger emitter
+  - [x] Lifetime
+  - [x] Trigger emitter
   - [ ] Gravity
 - [ ] Screen shake
 - [ ] Dialog boxes

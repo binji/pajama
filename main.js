@@ -618,6 +618,7 @@ function uploadTex(texture, data) {
 }
 
 let smiley;
+let shiftHeld = false;
 
 function onKeyDown(event) {
   maybeResumeAudio();
@@ -643,6 +644,10 @@ function onKeyDown(event) {
     case 'ArrowDown':
       smiley.moveDown();
       break;
+
+    case 'Shift':
+      shiftHeld = true;
+      break;
   }
 }
 
@@ -658,6 +663,10 @@ function onKeyUp(event) {
     case 'ArrowUp':
     case 'ArrowDown':
       smiley.stopVert();
+      break;
+
+    case 'Shift':
+      shiftHeld = false;
       break;
   }
 }
@@ -933,9 +942,12 @@ async function start() {
     gl.clearColor(0, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    updateRemainder += elapsed;
-    while (updateRemainder > updateMs) {
+    let timeScale = !shiftHeld ? 1 : 0.33;
+    updateRemainder += elapsed * timeScale;
+    let maxUpdates = 10;
+    while (updateRemainder > updateMs && maxUpdates > 0) {
       updateRemainder -= updateMs;
+      maxUpdates--;
 
       smiley.update();
 

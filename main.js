@@ -386,6 +386,9 @@ function initGl() {
   if (gl === null) {
     throw new Error('unable to create webgl context');
   }
+
+  gl.enable(gl.BLEND);
+  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 }
 
 class ParticleSystem {
@@ -397,8 +400,10 @@ class ParticleSystem {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     this.texture = texture;
+    this.texBuffer = new Uint8Array(TEX_WIDTH * TEX_HEIGHT * 4);
 
-    this.sprite = Sprite.makeQuad(texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT));
+    this.sprite = Sprite.makeQuad(texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT),
+      Mat3.makeScale(SCREEN_WIDTH / TEX_WIDTH, SCREEN_HEIGHT / TEX_HEIGHT));
     this.particles = [];
 
     for (let i = 0; i < 10000; ++i) {
@@ -418,27 +423,32 @@ class ParticleSystem {
 
   update() {
     for (let p of this.particles) {
-      p.x += p.dx;
-      p.y += p.dy;
+      p.x += 3*p.dx;
+      p.y += 3*p.dy;
       p.t++;
     }
   }
 
   draw(shader) {
-    const data = new Uint8Array(TEX_WIDTH * TEX_HEIGHT * 4);
+    // clear alpha byte
+    for (let i = 3; i < this.texBuffer.length; i += 4) {
+      // or do a blur effect, either way
+      this.texBuffer[i] /= 1.2;
+    }
+
     for (let p of this.particles) {
         if (p.x < 0 || p.x >= TEX_WIDTH || p.y < 0 || p.y >= TEX_HEIGHT) {
           continue;
         }
-        let i = (p.y|0) * TEX_WIDTH + (p.x|0);
-        data[4*i + 0] = p.r;
-        data[4*i + 1] = p.g;
-        data[4*i + 2] = p.b;
-        data[4*i + 3] = 255;
+        let i = Math.floor(p.y) * TEX_WIDTH + Math.floor(p.x);
+        this.texBuffer[4*i + 0] = p.r;
+        this.texBuffer[4*i + 1] = p.g;
+        this.texBuffer[4*i + 2] = p.b;
+        this.texBuffer[4*i + 3] = 255;
     }
 
     gl.bindTexture(gl.TEXTURE_2D, this.sprite.texture);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEX_WIDTH, TEX_HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, data);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEX_WIDTH, TEX_HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, this.texBuffer);
 
     draw(this.sprite, shader);
   }

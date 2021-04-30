@@ -388,6 +388,62 @@ function initGl() {
   }
 }
 
+class ParticleSystem {
+  constructor() {
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
+                  gl.UNSIGNED_BYTE, null);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    this.texture = texture;
+
+    this.sprite = Sprite.makeQuad(texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT));
+    this.particles = [];
+
+    for (let i = 0; i < 10000; ++i) {
+      let c = Math.random();
+      this.particles.push({
+        x: (1.2 * Math.random() - 0.1) * TEX_WIDTH,
+        y: (1.2 * Math.random() - 0.1) * TEX_HEIGHT,
+        dx: Math.random() - 0.5,
+        dy: Math.random() - 0.5,
+        t: 0,
+        r: 255 * c,
+        g: 255 * (1 - c),
+        b: 192,
+      });
+    }
+  }
+
+  update() {
+    for (let p of this.particles) {
+      p.x += p.dx;
+      p.y += p.dy;
+      p.t++;
+    }
+  }
+
+  draw(shader) {
+    const data = new Uint8Array(TEX_WIDTH * TEX_HEIGHT * 4);
+    for (let p of this.particles) {
+        if (p.x < 0 || p.x >= TEX_WIDTH || p.y < 0 || p.y >= TEX_HEIGHT) {
+          continue;
+        }
+        let i = (p.y|0) * TEX_WIDTH + (p.x|0);
+        data[4*i + 0] = p.r;
+        data[4*i + 1] = p.g;
+        data[4*i + 2] = p.b;
+        data[4*i + 3] = 255;
+    }
+
+    gl.bindTexture(gl.TEXTURE_2D, this.sprite.texture);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, TEX_WIDTH, TEX_HEIGHT, gl.RGBA, gl.UNSIGNED_BYTE, data);
+
+    draw(this.sprite, shader);
+  }
+}
+
 function makeTexture(asset) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -445,7 +501,7 @@ function makeTextureShader() {
       uniform sampler2D uSampler;
       void main(void) {
         vec4 tex = texture2D(uSampler, vTexCoord);
-        if (tex.xyz == vec3(1, 0, 1)) {
+        if (tex.w == 0.0 || tex.xyz == vec3(1, 0, 1)) {
           discard;
         }
         gl_FragColor = tex;
@@ -799,6 +855,8 @@ async function start() {
   let camMatGame = new Mat3();
   let camX = 0, camY = 0;
 
+  let particles = new ParticleSystem();
+
   const updateMs = 16.6;
   let lastTimestamp;
   let updateRemainder = updateMs + 1;
@@ -832,6 +890,7 @@ async function start() {
 
       camMatGame.setTranslate(-camX, -camY);
       bouncies.update();
+      particles.update();
     }
 
     camMat = camMatGame;
@@ -840,6 +899,9 @@ async function start() {
     bouncies.draw(shader);
 
     draw(smiley.sprite, shader);
+
+    camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+    particles.draw(shader);
 
     camMat = mat3Id;
     draw(text, shader);

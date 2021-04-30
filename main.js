@@ -409,10 +409,10 @@ class ParticleSystem {
     for (let i = 0; i < 10000; ++i) {
       let c = Math.random();
       this.particles.push({
-        x: (1.2 * Math.random() - 0.1) * TEX_WIDTH,
-        y: (1.2 * Math.random() - 0.1) * TEX_HEIGHT,
-        dx: Math.random() - 0.5,
-        dy: Math.random() - 0.5,
+        x: (1.2 * Math.random() - 0.1) * 1024,
+        y: (1.2 * Math.random() - 0.1) * 1024,
+        dx: 3*(Math.random() - 0.5),
+        dy: 3*(Math.random() - 0.5),
         t: 0,
         r: 255 * c,
         g: 255 * (1 - c),
@@ -423,13 +423,13 @@ class ParticleSystem {
 
   update() {
     for (let p of this.particles) {
-      p.x += 3*p.dx;
-      p.y += 3*p.dy;
+      p.x += p.dx;
+      p.y += p.dy;
       p.t++;
     }
   }
 
-  draw(shader) {
+  draw(shader, camX, camY) {
     // clear alpha byte
     for (let i = 3; i < this.texBuffer.length; i += 4) {
       // or do a blur effect, either way
@@ -437,14 +437,16 @@ class ParticleSystem {
     }
 
     for (let p of this.particles) {
-        if (p.x < 0 || p.x >= TEX_WIDTH || p.y < 0 || p.y >= TEX_HEIGHT) {
-          continue;
-        }
-        let i = Math.floor(p.y) * TEX_WIDTH + Math.floor(p.x);
-        this.texBuffer[4*i + 0] = p.r;
-        this.texBuffer[4*i + 1] = p.g;
-        this.texBuffer[4*i + 2] = p.b;
-        this.texBuffer[4*i + 3] = 255;
+      let x = p.x - camX;
+      let y = p.y - camY;
+      if (x < 0 || x >= TEX_WIDTH || y < 0 || y >= TEX_HEIGHT) {
+        continue;
+      }
+      let i = Math.floor(y) * TEX_WIDTH + Math.floor(x);
+      this.texBuffer[4*i + 0] = p.r;
+      this.texBuffer[4*i + 1] = p.g;
+      this.texBuffer[4*i + 2] = p.b;
+      this.texBuffer[4*i + 3] = 255;
     }
 
     gl.bindTexture(gl.TEXTURE_2D, this.sprite.texture);
@@ -911,7 +913,7 @@ async function start() {
     draw(smiley.sprite, shader);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
-    particles.draw(shader);
+    particles.draw(shader, camX, camY);
 
     camMat = mat3Id;
     draw(text, shader);

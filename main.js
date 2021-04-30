@@ -936,6 +936,7 @@ async function start() {
   let camMatGame = new Mat3();
   let camX = 0, camY = 0;
   let lastCamX = 0, lastCamY = 0;
+  let camZoom = 1, lastCamZoom = 1;
 
   let particles = new ParticleSystem();
 
@@ -980,6 +981,7 @@ async function start() {
 
       lastCamX = camX;
       lastCamY = camY;
+      lastCamZoom = camZoom;
       if (smiley.x - camX < camPushBox.l) {
         camX = Math.max(0, smiley.x - camPushBox.l);
       } else if (smiley.x - camX > camPushBox.r) {
@@ -992,14 +994,24 @@ async function start() {
         camY = Math.min(level.height - SCREEN_HEIGHT, smiley.y - camPushBox.b);
       }
 
+      camZoom = shiftHeld ? 1.2 : 1.0;
+
       bouncies.update();
       particles.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
 
-    camMatGame.setTranslate(-(camX - (camX - lastCamX) * dt),
-                            -(camY - (camY - lastCamY) * dt));
+    let camZoomPosX = smiley.x - camX;
+    let camZoomPosY = smiley.y - camY;
+
+    let curCamZoom = camZoom - (camZoom - lastCamZoom) * dt;
+    camMatGame.setTranslate(
+        -(camX - (camX - lastCamX) * dt + camZoomPosX) * curCamZoom +
+            camZoomPosX,
+        -(camY - (camY - lastCamY) * dt + camZoomPosY) * curCamZoom +
+            camZoomPosY);
+    camMatGame.setScale(curCamZoom, curCamZoom);
 
     camMat = camMatGame;
     draw(level.sprite, shader);

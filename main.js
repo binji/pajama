@@ -5,6 +5,8 @@ const TEX_HEIGHT = 512;
 const TILE_SIZE = 48;
 
 let gl;
+let audio;
+let audioStarted = false;
 
 function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
@@ -191,8 +193,8 @@ let assets = {
   testing: {filename: 'testing.json', type: 'level', data: null, depends: ['tiles']},
   tiny: {filename: 'tiny.json', type: 'level', data: null, depends: ['tiles']},
 
-  boom: {filename: 'boom.mp3', type: 'audio', data: null},
-  doots: {filename: 'doots.wav', type: 'audio', data: null},
+  boom: {filename: 'boom.mp3', type: 'sfx', data: null},
+  doots: {filename: 'doots.wav', type: 'music', data: null},
 };
 
 function loadImage(filename) {
@@ -212,9 +214,21 @@ async function loadJson(filename) {
   return json;
 }
 
-function loadAudio(filename) {
-  let audio = new Audio(filename);
-  return audio;
+async function loadSfx(filename) {
+  let response = await fetch(filename);
+  let buffer = await response.arrayBuffer();
+  let data = await audio.decodeAudioData(buffer);
+  return data;
+}
+
+async function loadMusic(filename) {
+  let music = new Audio(filename);
+  let source = audio.createMediaElementSource(music);
+  source.connect(audio.destination);
+  music.pause();
+  music.loop = true; // music should loop
+  music.volume = 0;  // set to 0 so first M press will set to 1
+  return source;
 }
 
 async function loadLevel(filename) {
@@ -343,41 +357,51 @@ async function loadAssets() {
       // Skip this asset if it is already loaded
       if (asset.data != null || hasMissingDeps) continue;
 
-      switch (asset.type) {
-        case 'image':
-          promises.push((async () => {
-            let image = await loadImage(asset.filename);
-            asset.data = image;
-          })());
-          break;
+      let cbs = {
+        'image': loadImage,
+        'json': loadJson,
+        'sfx': loadSfx,
+        'music': loadMusic,
+        'level': loadLevel,
+      };
 
-        case 'json':
-          promises.push((async () => {
-            let json = await loadJson(asset.filename);
-            asset.data = json;
-          })());
-          break;
-
-        case 'audio':
-          promises.push((async () => {
-            let audio = loadAudio(asset.filename);
-            asset.data = audio;
-          })());
-          break;
-
-        case 'level':
-          promises.push((async () => {
-            let json = await loadLevel(asset.filename);
-            asset.data = json;
-          })());
-          break;
-      }
+      promises.push((async () => {
+        let image = await cbs[asset.type](asset.filename);
+        asset.data = image;
+      })());
     }
 
     if (promises.length == 0) break;
 
     await Promise.all(promises);
   }
+}
+
+//------------------------------------------------------------------------------
+// Audio stuff
+
+function initAudio() {
+  audio = new AudioContext();
+}
+
+function maybeResumeAudio() {
+  if (!audioStarted) {
+    audio.resume();
+    audioStarted = true;
+  }
+}
+
+function playSound(asset) {
+  let node = audio.createBufferSource();
+  node.buffer = asset.data;
+  node.connect(audio.destination);
+  node.start();
+}
+
+function playMusic(asset) {
+  let media = asset.data.mediaElement;
+  media.play();
+  media.volume = 1 - media.volume;
 }
 
 //------------------------------------------------------------------------------
@@ -585,21 +609,18 @@ function uploadTex(texture, data) {
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
 }
 
-function playSound(asset) {
-  asset.data.play();
-}
-
 let smiley;
 
 function onKeyDown(event) {
+  maybeResumeAudio();
+
   switch (event.key) {
     case 'p':
       playSound(assets.boom);
       break;
 
     case 'm':
-      assets.doots.data.play();
-      assets.doots.data.volume = 1 - assets.doots.data.volume;
+      playMusic(assets.doots);
       break;
 
     case 'ArrowLeft':
@@ -618,6 +639,8 @@ function onKeyDown(event) {
 }
 
 function onKeyUp(event) {
+  maybeResumeAudio();
+
   switch (event.key) {
     case 'ArrowLeft':
     case 'ArrowRight':
@@ -867,14 +890,11 @@ let camPushBox = {l:SCREEN_WIDTH * 0.25, r:SCREEN_WIDTH * 0.75,
 
 async function start() {
   initGl();
+  initAudio();
 
   await loadAssets();
 
   level = assets.testing.data;
-
-  // music should loop
-  assets.doots.data.loop = true;
-  assets.doots.data.volume = 0; // set to 0 so first M press will set to 1
 
   const shader = makeTextureShader();
   font = makeFont();

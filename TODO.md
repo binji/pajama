@@ -1,5 +1,9 @@
 - [x] Particles
+  - [ ] Lifetime
+  - [ ] Trigger emitter
+  - [ ] Gravity
+- [ ] Screen shake
+- [ ] Dialog boxes
 - [x] Loading multiple levels
 - [x] Sprite class
-- [ ] Dialog boxes
 - [x] Sprite Animation

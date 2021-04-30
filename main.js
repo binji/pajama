@@ -9,6 +9,19 @@ let gl;
 function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
 }
+function lerp(t, lo, hi) {
+  t = clamp(0, t, 1);
+  return t * (hi - lo) + lo;
+}
+
+function rand(lo, hi) {
+  if (hi === undefined) {
+    // rand(x) == rand(0, x)
+    hi = lo;
+    lo = 0;
+  }
+  return Math.random() * (hi - lo) + lo;
+}
 
 class Mat3 {
   constructor() {
@@ -405,27 +418,37 @@ class ParticleSystem {
     this.sprite = Sprite.makeQuad(texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT),
       Mat3.makeScale(SCREEN_WIDTH / TEX_WIDTH, SCREEN_HEIGHT / TEX_HEIGHT));
     this.particles = [];
+  }
 
-    for (let i = 0; i < 10000; ++i) {
+  spawn(particle) {
+    // expected fields: x, y, dx, dy
+    // optional: r, g, b, life
+    if (particle.r === undefined) {
       let c = Math.random();
-      this.particles.push({
-        x: (1.2 * Math.random() - 0.1) * 1024,
-        y: (1.2 * Math.random() - 0.1) * 1024,
-        dx: 3*(Math.random() - 0.5),
-        dy: 3*(Math.random() - 0.5),
-        t: 0,
-        r: 255 * c,
-        g: 255 * (1 - c),
-        b: 192,
-      });
+      particle.r = 255 * c;
+      particle.g = 255 * (1 - c);
+      particle.b = 192;
     }
+    if (particle.life === undefined) {
+      particle.life = 120;
+    }
+    particle.t = 0;
+    this.particles.push(particle);
   }
 
   update() {
-    for (let p of this.particles) {
+    for (let i = 0; i < this.particles.length; ++i) {
+      const p = this.particles[i];
       p.x += p.dx;
       p.y += p.dy;
+
       p.t++;
+      if (p.t > p.life) {
+        // O(1) removal by moving the last particle up
+        this.particles[i] = this.particles[this.particles.length - 1];
+        this.particles.length--;
+        i--;
+      }
     }
   }
 
@@ -446,7 +469,7 @@ class ParticleSystem {
       this.texBuffer[4*i + 0] = p.r;
       this.texBuffer[4*i + 1] = p.g;
       this.texBuffer[4*i + 2] = p.b;
-      this.texBuffer[4*i + 3] = 255;
+      this.texBuffer[4*i + 3] = lerp(p.t / p.life, 255, 64);
     }
 
     gl.bindTexture(gl.TEXTURE_2D, this.sprite.texture);
@@ -887,6 +910,12 @@ async function start() {
       updateRemainder -= updateMs;
 
       smiley.update();
+
+      for (let i = 0; i < 10; ++i) {
+        particles.spawn({
+          x: smiley.x + rand(10), y: smiley.y + rand(10),
+          dx: rand(-0.1, 0.1), dy: rand(-0.1, 0.1)});
+      }
 
       if (smiley.x - camX < camPushBox.l) {
         camX = Math.max(0, smiley.x - camPushBox.l);

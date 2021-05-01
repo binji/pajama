@@ -268,6 +268,219 @@ class SpriteBatch {
   }
 }
 
+//------------------------------------------------------------------------------
+// Level
+
+class Level {
+  constructor(data, tilesAsset) {
+    this.data = data;
+    this.tileset = null;
+    this.sprite = null;
+    this.tiles = {};
+    this.collision = {
+      width : 0,
+      height : 0,
+      data : [],
+    };
+    this.triggers = [];
+    this.emitters = [];
+    this.platforms = [];
+    this.startPos = {x : 0, y : 0};
+    this.width = 0;
+    this.height = 0;
+
+    this.load(tilesAsset);
+  }
+
+  load(tilesAsset) {
+    if (this.data.tilesets.length != 1) {
+      throw 'no';
+    }
+
+    this.tileset = this.data.tilesets[0];
+    let texture = makeTexture(tilesAsset);
+    this.sprite = Sprite.makeEmptyBuffer(texture);
+
+    if (this.tileset.tilewidth != TILE_SIZE ||
+        this.tileset.tileheight != TILE_SIZE ||
+        this.tileset.imagewidth != TEX_WIDTH ||
+        this.tileset.imageheight != TEX_HEIGHT) {
+      throw 'why';
+    }
+
+    // preprocess tileset data for ease of lookup later
+    this.preprocessTiles();
+    this.calculatePixelSize();
+
+    for (let layer of this.data.layers) {
+      switch (layer.type) {
+        case 'tilelayer':
+          this.doTileLayer(layer);
+          break;
+
+        case 'objectgroup':
+          this.doObjectLayer(layer);
+          break;
+      }
+    }
+    this.sprite.buffer.upload();
+
+    this.doCollisionLayer(this.data.layers[1]);
+  }
+
+  preprocessTiles() {
+    const strideu = (TILE_SIZE + this.tileset.spacing) / TEX_WIDTH;
+    const stridev = (TILE_SIZE + this.tileset.spacing) / TEX_HEIGHT;
+    const marginu = this.tileset.margin / TEX_WIDTH;
+    const marginv = this.tileset.margin / TEX_HEIGHT;
+
+    for (let gid = this.tileset.firstgid;
+         gid < this.tileset.firstgid + this.tileset.tilecount; ++gid) {
+      const u =
+          ((gid - this.tileset.firstgid) % this.tileset.columns) * strideu +
+          marginu;
+      const v =
+          (Math.floor((gid - this.tileset.firstgid) / this.tileset.columns)) *
+              stridev +
+          marginv;
+      this.tiles[gid] = {u, v};
+    }
+  }
+
+  calculatePixelSize() {
+    for (let layer of this.data.layers) {
+      if (layer.type != 'tilelayer')
+        continue;
+    }
+  }
+
+  doTileLayer(layer) {
+    const dx = TILE_SIZE;
+    const dy = TILE_SIZE;
+    const du = TILE_SIZE / this.tileset.imagewidth;
+    const dv = TILE_SIZE / this.tileset.imageheight;
+
+    // Update level pixel width/height
+    this.width = Math.max(this.width, layer.width * TILE_SIZE);
+    this.height = Math.max(this.height, layer.height * TILE_SIZE);
+
+    let x = 0;
+    let y = 0;
+    for (let i = 0; i < layer.data.length; ++i) {
+      let gid = layer.data[i];
+      if (gid != 0) {
+        const x = (i % layer.width) * dx;
+        const y = Math.floor(i / layer.width) * dy;
+        const {u, v} = this.tiles[gid];
+        this.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
+      }
+    }
+  }
+
+  doCollisionLayer(layer) {
+    let collision = this.collision;
+    collision.width = layer.width;
+    collision.height = layer.height;
+    collision.data = [];
+
+    function getCell(x, y) {
+      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
+        return null;
+      }
+      return collision.data[y * layer.width + x];
+    }
+
+    for (let y = 0; y < layer.height; ++y) {
+      for (let x = 0; x < layer.width; ++x) {
+        let gid = layer.data[y * layer.width + x];
+        if (gid == 0)
+          continue;
+
+        const ts = TILE_SIZE;
+        let px = x * ts;
+        let py = y * ts;
+
+        let left = getCell(x - 1, y);
+        let top = getCell(x, y - 1);
+
+        let rect = new Rect(px, py, ts, ts);
+        let boxSegs = [
+          rect.topSeg(), rect.leftSeg(), rect.bottomSeg(), rect.rightSeg()
+        ];
+
+        if (left != null) {
+          // extend top and bottom segments
+          left[0].x1 = boxSegs[0].x1;
+          left[2].x0 = boxSegs[2].x0;
+          boxSegs[0] = left[0];
+          boxSegs[2] = left[2];
+        }
+
+        if (top != null) {
+          // extend right and left segments
+          top[1].y0 = boxSegs[1].y0;
+          top[3].y1 = boxSegs[3].y1;
+          boxSegs[1] = top[1];
+          boxSegs[3] = top[3];
+        }
+
+        // make sure segments aren't 0 length
+        for (let seg of boxSegs) {
+          if (seg.x0 == seg.x1 && seg.y0 == seg.y1) {
+            console.log('no');
+            throw 'no';
+          }
+        }
+
+        collision.data[y * layer.width + x] = boxSegs;
+      }
+    }
+  }
+
+  doObjectLayer(layer) {
+    for (let object of layer.objects) {
+      switch (object.type) {
+      case 'player':
+        this.startPos.x = object.x;
+        this.startPos.y = object.y;
+        break;
+
+      case 'message':
+        this.triggers.push({
+          type : 'message',
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+          message : object.properties[0].value,
+        });
+        break;
+
+      case 'platform': {
+        let x = object.x, y = object.y;
+        let points = [];
+        for (let point of object.polygon) {
+          points.push({x : x + point.x, y : y + point.y});
+        }
+        this.platforms.push({points});
+        break;
+      }
+
+      case 'particle-emitter':
+        this.emitters.push({
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+        });
+        break;
+
+      default:
+        throw 'what';
+      }
+    }
+  }
+};
 
 //------------------------------------------------------------------------------
 // Asset loading
@@ -322,179 +535,7 @@ async function loadLevel(asset) {
   let filename = asset.filename;
   let response = await fetch(filename);
   let json = await response.json();
-
-  let level = {
-    data: json,
-    sprite: null,
-    tiles: {},
-    collision: {
-      width: 0,
-      height: 0,
-      data: [],
-    },
-    triggers: [],
-    emitters: [],
-    platforms: [],
-    startPos: {x: 0, y: 0},
-    width: 0,
-    height: 0,
-  };
-
-  if (level.data.tilesets.length != 1) { throw 'no'; }
-
-  let tileset = level.data.tilesets[0];
-  let texture = makeTexture(assets[asset.depends[0]]);
-  level.sprite = Sprite.makeEmptyBuffer(texture);
-
-  // preprocess tileset data for ease of lookup later
-  const strideu = (tileset.tilewidth + tileset.spacing) / tileset.imagewidth;
-  const stridev = (tileset.tileheight + tileset.spacing) / tileset.imageheight;
-  const marginu = tileset.margin / tileset.imagewidth;
-  const marginv = tileset.margin / tileset.imageheight;
-
-  for (let gid = tileset.firstgid; gid < tileset.firstgid + tileset.tilecount; ++gid) {
-    const u = ((gid - tileset.firstgid) % tileset.columns) * strideu + marginu;
-    const v = (Math.floor((gid - tileset.firstgid) / tileset.columns)) * stridev + marginv;
-    level.tiles[gid] = {u, v};
-  }
-
-  // generate render buffer
-  for (let layer of level.data.layers) {
-    if (layer.type != 'tilelayer') continue;
-    level.width = Math.max(level.width, layer.width * tileset.tilewidth);
-    level.height = Math.max(level.height, layer.height * tileset.tileheight);
-  }
-
-  if (tileset.tilewidth != TILE_SIZE || tileset.tileheight != TILE_SIZE) {
-    throw 'why';
-  }
-
-  const dx = TILE_SIZE;
-  const dy = TILE_SIZE;
-  const du = TILE_SIZE / tileset.imagewidth;
-  const dv = TILE_SIZE / tileset.imageheight;
-
-  for (let layer of level.data.layers) {
-    if (layer.type != 'tilelayer') continue;
-    let x = 0;
-    let y = 0;
-    for (let i = 0; i < layer.data.length; ++i) {
-      let gid = layer.data[i];
-      if (gid != 0) {
-        const x = (i % layer.width) * dx;
-        const y = Math.floor(i / layer.width) * dy;
-        const {u, v} = level.tiles[gid];
-        level.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
-      }
-    }
-  }
-  level.sprite.buffer.upload();
-
-  // Handle collision layer
-  {
-    let layer = level.data.layers[1];
-    let collision = level.collision;
-
-    collision.width = layer.width;
-    collision.height = layer.height;
-    collision.data = [];
-
-    function getCell(x, y) {
-      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
-        return null;
-      }
-      return collision.data[y * layer.width + x];
-    }
-
-    for (let y = 0; y < layer.height; ++y) {
-      for (let x = 0; x < layer.width; ++x) {
-        let gid = layer.data[y * layer.width + x];
-        if (gid == 0) continue;
-
-        const ts = TILE_SIZE;
-        let px = x * ts;
-        let py = y * ts;
-
-        let left = getCell(x - 1, y);
-        let top = getCell(x, y - 1);
-
-        let rect = new Rect(px, py, ts, ts);
-        let boxSegs = [
-          rect.topSeg(), rect.leftSeg(), rect.bottomSeg(), rect.rightSeg()
-        ];
-
-        if (left != null) {
-          // extend top and bottom segments
-          left[0].x1 = boxSegs[0].x1;
-          left[2].x0 = boxSegs[2].x0;
-          boxSegs[0] = left[0];
-          boxSegs[2] = left[2];
-        }
-
-        if (top != null) {
-          // extend right and left segments
-          top[1].y0 = boxSegs[1].y0;
-          top[3].y1 = boxSegs[3].y1;
-          boxSegs[1] = top[1];
-          boxSegs[3] = top[3];
-        }
-
-        // make sure segments aren't 0 length
-        for (let seg of boxSegs) {
-          if (seg.x0 == seg.x1 && seg.y0 == seg.y1) {
-            console.log('no');
-            throw 'no';
-          }
-        }
-
-        collision.data[y * layer.width + x] = boxSegs;
-      }
-    }
-  }
-
-  // Handle object layer
-  for (let layer of level.data.layers) {
-    if (layer.type != 'objectgroup') continue;
-
-    for (let object of layer.objects) {
-      switch (object.type) {
-        case 'player':
-          level.startPos.x = object.x;
-          level.startPos.y = object.y;
-          break;
-
-        case 'message':
-          level.triggers.push({
-            type: 'message',
-            x: object.x, y: object.y,
-            w: object.width, h: object.height,
-            message: object.properties[0].value,
-          });
-          break;
-
-        case 'platform': {
-          let x = object.x, y = object.y;
-          let points = [];
-          for (let point of object.polygon) {
-            points.push({x: x + point.x, y: y + point.y});
-          }
-          level.platforms.push({points});
-          break;
-        }
-
-        case 'particle-emitter':
-          level.emitters.push({
-            x: object.x, y: object.y,
-            w: object.width, h: object.height,
-          });
-          break;
-
-        default:
-          throw 'what';
-      }
-    }
-  }
-
+  let level = new Level(json, assets[asset.depends[0]]);
   return level;
 }
 

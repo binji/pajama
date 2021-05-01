@@ -35,8 +35,8 @@ let platforms;
 let pickups;
 let particles;
 let font;
-let text;
 let camMat;
+let ui;
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -1086,6 +1086,8 @@ class Smiley {
 
     this.maxJump = -30;
     this.maxFall = 10;
+
+    this.currentTriggers = [];
   }
 
   jump() {
@@ -1229,23 +1231,37 @@ class Smiley {
   }
 
   doTriggers() {
-    if (text) {
-      text.destroy();
-      text = null;
-    }
-
+    let newTriggers = [];
     for (let trigger of level.triggers) {
       let rect = new Rect(trigger.x, trigger.y, trigger.w, trigger.h);
       if (this.rect.intersects(rect)) {
-        switch (trigger.type) {
-        case 'message':
-          text = Sprite.makeText(font, trigger.message, new Mat3(),
-                                 Mat3.makeTranslate(10, 10));
-          break;
-        }
-        break;
+        newTriggers.push(trigger);
       }
     }
+
+    for (let trigger of newTriggers) {
+      if (!this.currentTriggers.includes(trigger)) {
+        // Newly triggered
+        switch (trigger.type) {
+        case 'message':
+          ui.showMessage(trigger.message);
+          break;
+        }
+      }
+    }
+
+    for (let trigger of this.currentTriggers) {
+      if (!newTriggers.includes(trigger)) {
+        // Newly untriggered
+        switch (trigger.type) {
+        case 'message':
+          ui.hideMessage();
+          break;
+        }
+      }
+    }
+
+    this.currentTriggers = newTriggers;
   }
 
   update() {
@@ -1418,6 +1434,87 @@ class Camera {
   }
 };
 
+//------------------------------------------------------------------------------
+// UI
+
+class UI {
+  constructor() {
+    this.toast = new Toast();
+  }
+
+  showMessage(message) {
+    this.toast.showMessage(message);
+  }
+
+  hideMessage() {
+    this.toast.hideMessage();
+  }
+
+  update() {
+    this.toast.update();
+  }
+
+  draw(shader, dt) {
+    this.toast.draw(shader, dt);
+  }
+}
+
+class Toast {
+  constructor() {
+    this.sprite = null;
+    this.x = 0;
+    this.x = 0;
+    this.startX = 0;
+    this.startY = 0;
+    this.destX = 0;
+    this.destY = 0;
+    this.t = 0;
+    this.isHiding = false;
+  }
+
+  destroy() {
+    if (this.sprite) {
+      this.sprite.destroy();
+      this.sprite = null;
+    }
+  }
+
+  showMessage(message) {
+    this.destroy();
+    this.sprite = Sprite.makeText(font, message);
+    this.sprite.objMat.setScale(4, 4);
+    this.startX = this.destX = (SCREEN_WIDTH - message.length * 64) * 0.5;
+    this.startY = SCREEN_HEIGHT;
+    this.destY = SCREEN_HEIGHT - 64;
+    this.t = 0;
+    this.isHiding = false;
+  }
+
+  hideMessage() {
+    this.startY = this.y;
+    this.destY = SCREEN_HEIGHT;
+    this.t = 0;
+    this.isHiding = true;
+  }
+
+  update() {
+    if (this.sprite) {
+      this.t = Math.min(this.t + 0.1, 1);
+      this.x = lerp(this.t, this.startX, this.destX);
+      this.y = lerp(this.t, this.startY, this.destY);
+      this.sprite.objMat.setTranslate(this.x, this.y);
+      if (this.t >= 1 && this.isHiding) {
+        this.destroy();
+      }
+    }
+  }
+
+  draw(shader, dt) {
+    if (this.sprite) {
+      draw(this.sprite, shader);
+    }
+  }
+}
 
 //------------------------------------------------------------------------------
 
@@ -1431,8 +1528,8 @@ async function start() {
 
   const shader = makeTextureShader();
   font = makeFont();
-  text = null;
   smiley = new Smiley(assets.sprites.data.texture);
+  ui = new UI();
 
   platforms = new Platforms(assets.factoryTiles.data.texture);
   pickups = new Pickups(assets.sprites.data.texture);
@@ -1493,6 +1590,7 @@ async function start() {
       particles.update();
       platforms.update();
       pickups.update();
+      ui.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
@@ -1511,9 +1609,7 @@ async function start() {
     particles.draw(shader, camera, dt);
 
     camMat = mat3Id;
-    if (text) {
-      draw(text, shader);
-    }
+    ui.draw(shader, dt);
   }
   requestAnimationFrame(tick);
 };

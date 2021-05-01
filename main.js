@@ -340,25 +340,33 @@ async function loadLevel(asset) {
 
         let boxSegs = [
           {x0: px + 0,  y0: py + 0,  x1: px + ts, y1 : py + 0},  // top
-          {x0: px + 0,  y0: py + 0,  x1: px + 0,  y1 : py + ts}, // left
-          {x0: px + 0,  y0: py + ts, x1: px + ts, y1 : py + ts}, // bottom
+          {x0: px + 0,  y0: py + ts, x1: px + 0,  y1 : py + 0}, // left
+          {x0: px + ts, y0: py + ts, x1: px + 0,  y1 : py + ts}, // bottom
           {x0: px + ts, y0: py + 0,  x1: px + ts, y1 : py + ts}, // right
         ];
 
         if (left != null) {
           // extend top and bottom segments
           left[0].x1 = boxSegs[0].x1;
-          left[2].x1 = boxSegs[2].x1;
+          left[2].x0 = boxSegs[2].x0;
           boxSegs[0] = left[0];
           boxSegs[2] = left[2];
         }
 
         if (top != null) {
           // extend right and left segments
-          top[1].y1 = boxSegs[1].y1;
+          top[1].y0 = boxSegs[1].y0;
           top[3].y1 = boxSegs[3].y1;
           boxSegs[1] = top[1];
           boxSegs[3] = top[3];
+        }
+
+        // make sure segments aren't 0 length
+        for (let seg of boxSegs) {
+          if (seg.x0 == seg.x1 && seg.y0 == seg.y1) {
+            console.log('no');
+            throw 'no';
+          }
         }
 
         collision.data[y * layer.width + x] = boxSegs;
@@ -951,6 +959,10 @@ class Smiley {
     }
 
     function handleSeg(seg) {
+      let cross =
+          (px - seg.x0) * (seg.y1 - seg.y0) - (py - seg.y0) * (seg.x1 - seg.x0);
+      if (cross < 0) return false;
+
       let {dist2, ix, iy} =
           distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
 
@@ -974,16 +986,14 @@ class Smiley {
       const h = 48;
 
       if (this.x + rad >= ox || this.x - rad <= ox + w || this.y + rad >= oy ||
-          this.y - rad < oy + h) {
-        let segs = [
-          {x0: ox + 0, y0: oy + 0, x1: ox + 0, y1 : oy + h}, // left
-          {x0: ox + 0, y0: oy + h, x1: ox + w, y1 : oy + h}, // bottom
-          {x0: ox + w, y0: oy + 0, x1: ox + w, y1 : oy + h}, // right
-        ];
+          this.y - rad <= oy + h) {
 
-        for (let seg of segs) {
-          handleSeg(seg);
-        }
+        // left
+        handleSeg({x0: ox + 0, y0: oy + h, x1: ox + 0, y1 : oy + 0});
+        //bottom
+        handleSeg({x0: ox + w, y0: oy + h, x1: ox + 0, y1 : oy + h});
+        // right
+        handleSeg({x0: ox + w, y0: oy + 0, x1: ox + w, y1 : oy + h});
 
         // Riding on top of the platform
         let seg = {x0: ox + 0, y0: oy + 20, x1: ox + w, y1 : oy + 20};

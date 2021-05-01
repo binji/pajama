@@ -68,6 +68,10 @@ function randSign() {
   return 2 * randInt(2) - 1;
 }
 
+function randElem(list) {
+  return list[randInt(list.length)];
+}
+
 function dist2(x0, y0, x1, y1) {
   return (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0);
 }
@@ -1309,6 +1313,9 @@ class Pickups {
         Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
 
     this.objs = [];
+    this.spawnDelay = 300;
+    this.maxSpawned = 5;
+    this.spawnTimer = 0;
   }
 
   push(pickup) {
@@ -1316,25 +1323,35 @@ class Pickups {
   }
 
   update() {
-    if (this.objs.length == 0) {
-      let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
-      if (x < 40) { x += 1000; }
-      this.objs.push(new Pickup(x, level.startPos.y, (p) => {
-        playSound(assets.boom);
-        for (let i = 0; i < 375; ++i) {
-          let t = rand(2*PI);
-          let v = rand(6);
-          let c = rand(0.6, 1)
-          particles.spawn({
-            x: p.x, y: p.y,
-            dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
-            r: 255*c, g: 205*c, b: 64,
-            life: rand(25, 75),
-            gravity: 0.2,
-          });
-        }
-      }));
+    // Spawning logic
+    if (this.objs.length >= this.maxSpawned) {
+      return;
     }
+
+    this.spawnTimer--;
+    if (this.spawnTimer >= 0) {
+      return;
+    }
+    this.spawnTimer = this.spawnDelay;
+
+    let region = randElem(level.pickupRegions);
+    let x = rand(region.x, region.x+region.w);
+    let y = rand(region.y, region.y+region.h);
+    this.objs.push(new Pickup(x, y, (p) => {
+      playSound(assets.boom);
+      for (let i = 0; i < 375; ++i) {
+        let t = rand(2*PI);
+        let v = rand(6);
+        let c = rand(0.6, 1)
+        particles.spawn({
+          x: p.x, y: p.y,
+          dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
+          r: 255*c, g: 205*c, b: 64,
+          life: rand(25, 75),
+          gravity: 0.2,
+        });
+      }
+    }));
   }
 
   draw(shader, dt) {

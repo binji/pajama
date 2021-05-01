@@ -40,6 +40,8 @@ let camMat;
 //------------------------------------------------------------------------------
 // Math stuff
 
+const PI = 3.1415926535;
+
 function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
 }
@@ -659,7 +661,9 @@ function maybeResumeAudio() {
   }
 }
 
+let isMuted = true;
 function playSound(asset) {
+  if (isMuted) { return; }
   let node = audio.createBufferSource();
   node.buffer = asset.data;
   node.connect(audio.destination);
@@ -667,9 +671,10 @@ function playSound(asset) {
 }
 
 function playMusic(asset) {
+  isMuted = !isMuted;
   let media = asset.data.mediaElement;
   media.play();
-  media.volume = 1 - media.volume;
+  media.volume = 1 - (isMuted|0);
 }
 
 //------------------------------------------------------------------------------
@@ -1193,8 +1198,8 @@ class Smiley {
     // Pickups
     for (let i = 0; i < pickups.length; ++i) {
       let pickup = pickups[i];
-      if (smileRect.intersects(pickup.rect)) {
-        pickup.onCollect();
+      if (this.rect.intersects(pickup.rect)) {
+        pickup.onCollect(pickup);
         pickups.splice(i, 1);
         i--;
       }
@@ -1399,13 +1404,24 @@ async function start() {
 
       smiley.update();
 
-      // if (pickups.length == 0) {
-      //   let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
-      //   if (x < 40) { x += 1000; }
-      //   pickups.push(new Pickup(assets.sprites.data.texture, x, level.startPos.y, () => {
-      //     console.log("yeah man");
-      //   }));
-      // }
+      if (pickups.length == 0) {
+        let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
+        if (x < 40) { x += 1000; }
+        pickups.push(new Pickup(assets.sprites.data.texture, x, level.startPos.y, (p) => {
+          playSound(assets.boom);
+          for (let i = 0; i < 75; ++i) {
+            let t = rand(2*PI);
+            let v = rand(4, 6);
+            let c = rand(0.4, 1)
+            particles.spawn({
+              x: p.x, y: p.y,
+              dx: v * Math.cos(t), dy: v * Math.sin(t),
+              r: 255*c, g: 155*c, b: 64,
+              life: 45,
+            });
+          }
+        }));
+      }
 
       for (let i = 0; i < 2; ++i) {
         particles.spawn({

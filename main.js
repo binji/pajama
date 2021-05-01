@@ -78,6 +78,19 @@ function dist2(x0, y0, x1, y1) {
   return (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0);
 }
 
+function gradientLerp(t, colors) {
+  let maxIdx = colors.length - 1;
+  let lo = Math.floor(t * maxIdx);
+  t = t * maxIdx - lo;
+  let hi = colors[lo+1];
+  lo = colors[lo];
+  return {
+    r: lerp(t, lo.r, hi.r),
+    g: lerp(t, lo.g, hi.g),
+    b: lerp(t, lo.b, hi.b),
+  };
+}
+
 class Segment {
   constructor(x0, y0, x1, y1) {
     this.x0 = x0;
@@ -1577,6 +1590,10 @@ class Clock {
   addText(text) {
     text.add(0, 32, this.toString(), 2, 2);
   }
+
+  workdayFraction() {
+    return this.frames / this.workdayFrames;
+  }
 };
 
 //------------------------------------------------------------------------------
@@ -1613,7 +1630,15 @@ async function start() {
     let elapsed = timestamp - lastTimestamp;
     lastTimestamp = timestamp;
 
-    gl.clearColor(0, 0.1, 0.1, 1.0);
+    let clearColor = gradientLerp(ui.clock.workdayFraction(), [
+      {r: 0.2, g: 0.3, b: 1.0},
+      {r: 0.3, g: 0.8, b: 1.0},
+      {r: 0.4, g: 0.9, b: 1.0},
+      {r: 0.7, g: 0.3, b: 0.8},
+      {r: 0.5, g: 0.1, b: 0.5},
+      {r: 0.2, g: 0.1, b: 0.3},
+    ]);
+    gl.clearColor(clearColor.r, clearColor.g, clearColor.b, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
     let timeScale = slowmo ? 0.33 : 1;

@@ -1162,10 +1162,14 @@ async function start() {
 
     let timeScale = !shiftHeld ? 1 : 0.33;
     updateRemainder += elapsed * timeScale;
-    let maxUpdates = 10;
+    let maxUpdates = 20;
     while (updateRemainder > updateMs && maxUpdates > 0) {
       updateRemainder -= updateMs;
       maxUpdates--;
+      if (maxUpdates <= 0) {
+        // don't run in fast-forward for the forseeable future
+        updateRemainder = 0;
+      }
 
       smiley.update();
 

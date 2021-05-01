@@ -1260,7 +1260,7 @@ class Camera {
       this.y = Math.min(level.height - SCREEN_HEIGHT, smiley.y - pushBox.b);
     }
 
-    this.zoom = shiftHeld ? 1.2 : 1.0;
+    this.zoom = shiftHeld ? 2.0 : 1.0;
   }
 
   draw(dt) {

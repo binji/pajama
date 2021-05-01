@@ -1,7 +1,7 @@
 - [x] Particles
   - [x] Lifetime
   - [x] Trigger emitter
-  - [ ] Gravity
+  - [x] Gravity
 - [ ] Screen shake
 - [ ] Dialog boxes
 - [x] Loading multiple levels

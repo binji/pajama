@@ -732,6 +732,9 @@ class ParticleSystem {
     if (particle.life === undefined) {
       particle.life = 120;
     }
+    if (particle.gravity === undefined) {
+      particle.gravity = 0;
+    }
     particle.t = 0;
     this.particles.push(particle);
   }
@@ -741,6 +744,7 @@ class ParticleSystem {
       const p = this.particles[i];
       p.x += p.dx;
       p.y += p.dy;
+      p.dy += p.gravity;
 
       p.t++;
       if (p.t > p.life) {
@@ -1409,15 +1413,16 @@ async function start() {
         if (x < 40) { x += 1000; }
         pickups.push(new Pickup(assets.sprites.data.texture, x, level.startPos.y, (p) => {
           playSound(assets.boom);
-          for (let i = 0; i < 75; ++i) {
+          for (let i = 0; i < 375; ++i) {
             let t = rand(2*PI);
-            let v = rand(4, 6);
-            let c = rand(0.4, 1)
+            let v = rand(6);
+            let c = rand(0.6, 1)
             particles.spawn({
               x: p.x, y: p.y,
-              dx: v * Math.cos(t), dy: v * Math.sin(t),
-              r: 255*c, g: 155*c, b: 64,
-              life: 45,
+              dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
+              r: 255*c, g: 205*c, b: 64,
+              life: rand(25, 75),
+              gravity: 0.2,
             });
           }
         }));

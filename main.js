@@ -333,7 +333,7 @@ class Level {
     }
 
     this.tileset = this.data.tilesets[0];
-    let texture = makeTexture(tilesAsset);
+    let texture = tilesAsset.data.texture;
     this.sprite = Sprite.makeEmptyBuffer(texture);
 
     if (this.tileset.tilewidth != TILE_SIZE ||
@@ -548,8 +548,9 @@ function loadImage(asset) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = async () => {
-      let imgbmp = await createImageBitmap(image);
-      resolve(imgbmp);
+      let bitmap = await createImageBitmap(image);
+      let texture = makeTexture(bitmap);
+      resolve({bitmap, texture});
     };
     image.src = asset.filename;
   });
@@ -755,7 +756,7 @@ class ParticleSystem {
   }
 }
 
-function makeTexture(asset) {
+function makeTexture(bitmap) {
   const texture = gl.createTexture();
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, TEX_WIDTH, TEX_HEIGHT, 0, gl.RGBA,
@@ -763,7 +764,7 @@ function makeTexture(asset) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
-  uploadTex(texture, asset.data);
+  uploadTex(texture, bitmap);
   return texture;
 }
 
@@ -774,7 +775,7 @@ function makeTexMat3x3(texPos, w, h) {
 }
 
 function makeFont() {
-  const texture = makeTexture(assets.font);
+  const texture = assets.font.data.texture;
 
   let map = {};
   for (let i = 0x21; i < 0x7e; ++i) {
@@ -1329,12 +1330,10 @@ async function start() {
   font = makeFont();
   text = Sprite.makeText(font, 'find ice; M is for music', new Mat3(),
                          Mat3.makeTranslate(10, 10));
-  const spriteTexture = makeTexture(assets.sprites);
-  smiley = new Smiley(spriteTexture);
-  const bouncies = new Bouncies(spriteTexture);
+  smiley = new Smiley(assets.sprites.data.texture);
+  const bouncies = new Bouncies(assets.sprites.data.texture);
 
-  const factoryTexture = makeTexture(assets.factoryTiles);
-  platforms = new Platforms(factoryTexture);
+  platforms = new Platforms(assets.factoryTiles.data.texture);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;

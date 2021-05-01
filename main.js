@@ -1161,10 +1161,6 @@ class Smiley {
     // Platform collision
     for (let obj of platforms.objs) {
       if (this.rect.intersects(obj.rect)) {
-        handleSeg(obj.rect.leftSeg());
-        handleSeg(obj.rect.bottomSeg());
-        handleSeg(obj.rect.rightSeg());
-
         // Riding on top of the platform
         if (handleSeg(obj.rect.topSeg().translate(0, 20))) {
           let dx = obj.x - obj.lastX;

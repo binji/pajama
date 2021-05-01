@@ -261,26 +261,6 @@ class Sprite {
     vb.upload();
     return new Sprite(vb, texture, objMat, texMat);
   }
-
-  static makeText(font, str, objMat, texMat) {
-    const dx = 16;
-    const dy = 16;
-    const du = 16 / TEX_WIDTH;
-    const dv = 16 / TEX_HEIGHT;
-
-    let x = 0, y = 0;
-    let vb = new VertexBuffer();
-    for (let i = 0; i < str.length; ++i) {
-      const chr = str.charCodeAt(i);
-      if (chr != 32) {
-        const {u, v} = font.map[chr];
-        vb.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
-      }
-      x += dx;
-    }
-    vb.upload();
-    return new Sprite(vb, font.texture, objMat, texMat);
-  }
 }
 
 
@@ -312,6 +292,48 @@ class SpriteBatch {
 
   upload() {
     this.sprite.buffer.upload(gl.DYNAMIC_DRAW);
+  }
+}
+
+class Text {
+  constructor(font, objMat, texMat) {
+    this.sprite = Sprite.makeEmptyBuffer(font.texture);
+  }
+
+  reset() {
+    this.sprite.buffer.reset();
+  }
+
+  add(x, y, str, sx = 1, sy = 1) {
+    const dx = 16 * sx;
+    const dy = 16 * sy;
+    const du = 16 / TEX_WIDTH;
+    const dv = 16 / TEX_HEIGHT;
+
+    for (let i = 0; i < str.length; ++i) {
+      const chr = str.charCodeAt(i);
+      if (chr != 32) {
+        const {u, v} = font.map[chr];
+        this.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
+      }
+      x += dx;
+    }
+  }
+
+  upload() {
+    this.sprite.buffer.upload(gl.DYNAMIC_DRAW);
+  }
+
+  set(x, y, message, sx = 1, sy = 1) {
+    this.reset();
+    this.add(x, y, message, sx, sy);
+    this.upload();
+  }
+
+  draw(shader, dt) {
+    if (this.sprite.buffer.count != 0) {
+      draw(this.sprite, shader)
+    }
   }
 }
 
@@ -1457,58 +1479,40 @@ class UI {
 
 class Toast {
   constructor() {
-    this.sprite = null;
+    this.text = new Text(font);
+    this.message = '';
     this.x = 0;
-    this.x = 0;
+    this.y = 0;
     this.startX = 0;
     this.startY = 0;
     this.destX = 0;
     this.destY = 0;
     this.t = 0;
-    this.isHiding = false;
-  }
-
-  destroy() {
-    if (this.sprite) {
-      this.sprite.destroy();
-      this.sprite = null;
-    }
   }
 
   showMessage(message) {
-    this.destroy();
-    this.sprite = Sprite.makeText(font, message);
-    this.sprite.objMat.setScale(4, 4);
+    this.message = message;
     this.startX = this.destX = (SCREEN_WIDTH - message.length * 64) * 0.5;
     this.startY = SCREEN_HEIGHT;
     this.destY = SCREEN_HEIGHT - 64;
     this.t = 0;
-    this.isHiding = false;
   }
 
   hideMessage() {
     this.startY = this.y;
     this.destY = SCREEN_HEIGHT;
     this.t = 0;
-    this.isHiding = true;
   }
 
   update() {
-    if (this.sprite) {
-      this.t = Math.min(this.t + 0.1, 1);
-      this.x = lerp(this.t, this.startX, this.destX);
-      this.y = lerp(this.t, this.startY, this.destY);
-      this.sprite.objMat.setTranslate(this.x, this.y);
-      if (this.t >= 1 && this.isHiding) {
-        this.destroy();
-      }
-    }
+    this.t = Math.min(this.t + 0.1, 1);
+    this.x = lerp(this.t, this.startX, this.destX);
+    this.y = lerp(this.t, this.startY, this.destY);
   }
 
   draw(shader, dt) {
-    if (this.sprite) {
-      draw(this.sprite, shader);
-    }
+    this.text.set(this.x, this.y, this.message, 4, 4);
+    this.text.draw(shader, dt);
   }
 }
 

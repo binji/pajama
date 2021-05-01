@@ -1214,10 +1214,11 @@ async function start() {
 
       smiley.update();
 
-      for (let i = 0; i < 3; ++i) {
+      for (let i = 0; i < 2; ++i) {
         particles.spawn({
-          x: smiley.x + rand(10), y: smiley.y + rand(10),
-          dx: rand(-0.1, 0.1), dy: rand(-0.1, 0.1)});
+          x: smiley.x + rand(-1,1)*TILE_SIZE/4, y: smiley.y + rand(-1,1)*TILE_SIZE/2,
+          dx: rand(-0.4, 0.4), dy: rand(-0.4, 0.4),
+          life: 30});
       }
       for (let emitter of level.emitters) {
         for (let i = 0; i < 5; ++i) {

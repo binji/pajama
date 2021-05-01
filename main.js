@@ -244,6 +244,11 @@ async function loadLevel(filename) {
     data: json,
     sprite: Sprite.makeEmptyBuffer(texture),
     tiles: {},
+    collision: {
+      width: 0,
+      height: 0,
+      data: [],
+    },
     triggers: [],
     emitters: [],
     startPos: {x: 0, y: 0},
@@ -298,6 +303,62 @@ async function loadLevel(filename) {
     }
   }
   level.sprite.buffer.upload();
+
+  // Handle collision layer
+  {
+    let layer = level.data.layers[1];
+    let collision = level.collision;
+
+    collision.width = layer.width;
+    collision.height = layer.height;
+    collision.data = [];
+
+    function getCell(x, y) {
+      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
+        return null;
+      }
+      return collision.data[y * layer.width + x];
+    }
+
+    for (let y = 0; y < layer.height; ++y) {
+      for (let x = 0; x < layer.width; ++x) {
+        let gid = layer.data[y * layer.width + x];
+        if (gid == 0) continue;
+
+        const ts = TILE_SIZE;
+        let px = x * ts;
+        let py = y * ts;
+
+        let left = getCell(x - 1, y);
+        let top = getCell(x, y - 1);
+
+        let boxSegs = [
+          {x0: px + 0,  y0: py + 0,  x1: px + ts, y1 : py + 0},  // top
+          {x0: px + 0,  y0: py + 0,  x1: px + 0,  y1 : py + ts}, // left
+          {x0: px + 0,  y0: py + ts, x1: px + ts, y1 : py + ts}, // bottom
+          {x0: px + ts, y0: py + 0,  x1: px + ts, y1 : py + ts}, // right
+        ];
+
+        if (left != null) {
+          // extend top and bottom segments
+          left[0].x1 = boxSegs[0].x1;
+          left[2].x1 = boxSegs[2].x1;
+          boxSegs[0] = left[0];
+          boxSegs[2] = left[2];
+        }
+
+        if (top != null) {
+          // extend right and left segments
+          top[1].y1 = boxSegs[1].y1;
+          top[3].y1 = boxSegs[3].y1;
+          boxSegs[1] = top[1];
+          boxSegs[3] = top[3];
+        }
+
+        collision.data[y * layer.width + x] = boxSegs;
+      }
+    }
+  }
 
   // Handle object layer
   for (let layer of level.data.layers) {
@@ -750,12 +811,6 @@ class Smiley {
   }
 
   doCollision() {
-    const boxSegs = [
-      {x0 : 0, y0 : 0, x1 : TILE_SIZE, y1 : 0},                 // top
-      {x0 : 0, y0 : 0, x1 : 0, y1 : TILE_SIZE},                 // left
-      {x0 : 0, y0 : TILE_SIZE, x1 : TILE_SIZE, y1 : TILE_SIZE}, // bottom
-      {x0 : TILE_SIZE, y0 : 0, x1 : TILE_SIZE, y1 : TILE_SIZE}, // right
-    ];
     const dirs = [
       {x : -1, y : -1},
       {x : -1, y : 0},
@@ -772,7 +827,7 @@ class Smiley {
     let rad2 = rad * rad;
     let tx = Math.floor(px / TILE_SIZE);
     let ty = Math.floor(py / TILE_SIZE);
-    let layer = level.data.layers[1];
+    let layer = level.collision;
 
     function getCell(x, y) {
       if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
@@ -782,15 +837,13 @@ class Smiley {
     }
 
     for (let dir of dirs) {
-      let tile = getCell(tx + dir.x, ty + dir.y);
-      if (!tile)
+      let segs = getCell(tx + dir.x, ty + dir.y);
+      if (!segs)
         continue;
 
-      for (let seg of boxSegs) {
-        let left = (tx + dir.x) * TILE_SIZE;
-        let top = (ty + dir.y) * TILE_SIZE;
-        let {dist2, ix, iy} = distToLineSegment2(
-            px, py, seg.x0 + left, seg.y0 + top, seg.x1 + left, seg.y1 + top);
+      for (let seg of segs) {
+        let {dist2, ix, iy} =
+            distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
 
         if (dist2 < rad2) {
           // push away along vec between object and segment.

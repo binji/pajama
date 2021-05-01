@@ -47,6 +47,7 @@ let platforms;
 let pickups;
 let particles;
 let font;
+let camera;
 let camMat;
 let ui;
 let tossers;
@@ -374,9 +375,7 @@ class Text {
   }
 
   draw(shader, dt) {
-    if (this.sprite.buffer.count != 0) {
-      draw(this.sprite, shader)
-    }
+    draw(this.sprite, shader)
   }
 }
 
@@ -643,6 +642,7 @@ class Level {
   }
 
   handleObjCollision(thing, isClimbing = false, cb) {
+    let hasCollision = false;
     for (let tile of this.getTiles(thing.rect)) {
       let gid = this.getCollisionCell(tile.x, tile.y);
       if (LADDER_GIDS.includes(gid) && isClimbing)
@@ -658,10 +658,12 @@ class Level {
             if (cb) {
               cb(tile, seg);
             }
+            hasCollision = true;
           }
         }
       }
     }
+    return hasCollision;
   }
 };
 
@@ -989,7 +991,7 @@ function makeTextureShader() {
 }
 
 function draw(sprite, shader) {
-  if (!sprite) return;
+  if (!sprite || sprite.buffer.count == 0) return;
 
   gl.bindBuffer(gl.ARRAY_BUFFER, sprite.buffer.glbuf);
   gl.bindTexture(gl.TEXTURE_2D, sprite.texture);
@@ -1099,7 +1101,7 @@ function convertEventMouseLocation(event) {
 function onMouseEvent(event) {
   let [x, y] = convertEventMouseLocation(event);
   if (ui.cursor) {
-    ui.cursor.objMat.setTranslate(x, y);
+    ui.cursor.setPos(x, y);
   }
 
   mouseState.left = !!(event.buttons & 1);
@@ -1215,6 +1217,7 @@ class Platforms {
   }
 
   handleObjCollision(thing, cb) {
+    let hasCollision = false;
     for (let obj of this.objs) {
       if (thing.rect.intersects(obj.rect)) {
         // Riding on top of the platform
@@ -1223,9 +1226,11 @@ class Platforms {
           if (cb) {
             cb(obj, seg);
           }
+          hasCollision = true;
         }
       }
     }
+    return hasCollision;
   }
 };
 
@@ -1416,8 +1421,13 @@ class Smiley {
     }
 
     if (mousePressed.left) {
-      let frame = randInt(51, 53);
-      tossers.push(new Tosser(frame, this.x, this.y, 0, 0));
+      const force = 8;
+      let frame = randInt(50, 53);
+      let {x, y} = ui.cursor.toWorldPos();
+      let invDist = force / Math.sqrt(dist2(this.x, this.y, x, y));
+      let throwX = (x - this.x) * invDist;
+      let throwY = (y - this.y) * invDist;
+      tossers.push(new Tosser(frame, this.x, this.y, throwX, throwY));
     }
 
     this.ddx = this.accel * ((keyState.right|0) - (keyState.left|0));
@@ -1554,6 +1564,8 @@ class Tosser {
     this.frame = frame;
     this.radius = 22;
 
+    this.drag = 0.85;
+
     this.rect = Rect.makeCenterRadius(this.x, this.y, this.radius);
   }
 
@@ -1564,8 +1576,12 @@ class Tosser {
     this.x += this.dx;
     this.y += this.dy;
 
-    platforms.handleObjCollision(this);
-    level.handleObjCollision(this);
+    let hasCollision = false;
+    hasCollision |= platforms.handleObjCollision(this);
+    hasCollision |= level.handleObjCollision(this);
+    if (hasCollision) {
+      this.dx *= this.drag;
+    }
 
     this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
   }
@@ -1654,6 +1670,28 @@ class Camera {
         -(lerp(dt, this.y, this.lastY) + zoomPosY) * curZoom + zoomPosY);
     this.mat.setScale(curZoom, curZoom);
   }
+
+  worldToScreen(x, y, dt = 0) {
+    let zoomPosX = smiley.x - this.x;
+    let zoomPosY = smiley.y - this.y;
+    let curZoom = this.zoom - (this.zoom - this.lastZoom) * dt;
+    let camX = -(lerp(dt, this.x, this.lastX) + zoomPosX) * curZoom + zoomPosX;
+    let camY = -(lerp(dt, this.y, this.lastY) + zoomPosY) * curZoom + zoomPosY;
+    x = (x * curZoom) + camX;
+    y = (y * curZoom) + camY;
+    return {x, y};
+  }
+
+  screenToWorld(x, y, dt = 1) {
+    let zoomPosX = smiley.x - this.x;
+    let zoomPosY = smiley.y - this.y;
+    let curZoom = this.zoom - (this.zoom - this.lastZoom) * dt;
+    let camX = -(lerp(dt, this.x, this.lastX) + zoomPosX) * curZoom + zoomPosX;
+    let camY = -(lerp(dt, this.y, this.lastY) + zoomPosY) * curZoom + zoomPosY;
+    x = (x - camX) / curZoom;
+    y = (y - camY) / curZoom;
+    return {x, y};
+  }
 };
 
 //------------------------------------------------------------------------------
@@ -1664,11 +1702,7 @@ class UI {
     this.toast = new Toast();
     this.text = new Text(font);
     this.clock = new Clock();
-    this.cursor = Sprite.makeQuad(assets.sprites.data.texture,
-                                  Mat3.makeTileObj(), Mat3.makeTileTex());
-
-    let {x, y} = getSpriteTexPos(2);
-    this.cursor.texMat.setTranslate(x, y);
+    this.cursor = new Cursor();
   }
 
   showMessage(message) {
@@ -1691,7 +1725,7 @@ class UI {
     this.text.upload();
     this.text.draw(shader, dt);
     this.toast.draw(shader, dt);
-    draw(this.cursor, shader);
+    this.cursor.draw(shader, dt);
   }
 }
 
@@ -1784,6 +1818,30 @@ class Clock {
   }
 };
 
+class Cursor {
+  constructor() {
+    this.sprite = Sprite.makeQuad(assets.sprites.data.texture,
+                                  Mat3.makeTileObj(), Mat3.makeTileTex());
+
+    let {x, y} = getSpriteTexPos(2);
+    this.sprite.texMat.setTranslate(x, y);
+  }
+
+  setPos(x, y) {
+    this.x = x;
+    this.y = y;
+    this.sprite.objMat.setTranslate(x, y);
+  }
+
+  draw(shader, dt) {
+    draw(this.sprite, shader);
+  }
+
+  toWorldPos() {
+    return camera.screenToWorld(this.x, this.y);
+  }
+}
+
 //------------------------------------------------------------------------------
 
 async function start() {
@@ -1809,7 +1867,7 @@ async function start() {
   canvas.onmousedown = onMouseEvent;
   canvas.onmouseup = onMouseEvent;
 
-  let camera = new Camera();
+  camera = new Camera();
   particles = new ParticleSystem();
 
   const updateMs = 16.6;

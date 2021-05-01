@@ -729,16 +729,24 @@ class ParticleSystem {
     }
   }
 
-  draw(shader, camX, camY, dt) {
+  draw(shader, camera, dt) {
     // clear alpha byte
     for (let i = 3; i < this.texBuffer.length; i += 4) {
       // or do a blur effect, either way
       this.texBuffer[i] /= 1.2;
     }
 
+    // TODO: don't copy these values from camera
+    let zoomPosX = smiley.x - camera.x;
+    let zoomPosY = smiley.y - camera.y;
+    let curZoom = camera.zoom - (camera.zoom - camera.lastZoom) * dt;
+    let camX = -(camera.x + zoomPosX) * curZoom + zoomPosX;
+    let camY = -(camera.y + zoomPosY) * curZoom + zoomPosY;
+    let invScale = 1 / this.scale;
+
     for (let p of this.particles) {
-      let x = (p.x - p.dx * dt - camX) / this.scale;
-      let y = (p.y - p.dy * dt - camY) / this.scale;
+      let x = ((p.x - p.dx * dt) * curZoom + camX) * invScale;
+      let y = ((p.y - p.dy * dt) * curZoom + camY) * invScale;
       if (x < 0 || x >= TEX_WIDTH || y < 0 || y >= TEX_HEIGHT) {
         continue;
       }
@@ -1405,7 +1413,7 @@ async function start() {
     smiley.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
-    particles.draw(shader, camera.x, camera.y, dt);
+    particles.draw(shader, camera, dt);
 
     camMat = mat3Id;
     draw(text, shader);

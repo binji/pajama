@@ -1461,6 +1461,7 @@ class UI {
   constructor() {
     this.toast = new Toast();
     this.text = new Text(font);
+    this.clock = new Clock();
   }
 
   showMessage(message) {
@@ -1473,11 +1474,13 @@ class UI {
 
   update() {
     this.toast.update();
+    this.clock.update();
   }
 
   draw(shader, dt) {
     this.text.reset();
     this.text.add(0, 0, `score: ${score}`, 2, 2);
+    this.clock.addText(this.text);
     this.text.upload();
     this.text.draw(shader, dt);
     this.toast.draw(shader, dt);
@@ -1522,6 +1525,36 @@ class Toast {
     this.text.draw(shader, dt);
   }
 }
+
+class Clock {
+  constructor() {
+    this.time = 0;
+  }
+
+  update() {
+    this.time++;
+  }
+
+  toString() {
+    let sec = Math.floor(this.time / 1);
+    let padInt = (num, len, chr) => num.toString().padStart(len, chr);
+    let min = sec % 60;
+    let hour = (Math.floor(sec / 60)) % 24;
+    let ampm = 'AM';
+    if (hour >= 12 && hour < 24) {
+      ampm = 'PM';
+      hour -= 12;
+    }
+    if (hour == 0) {
+      hour = 12;
+    }
+    return `${padInt(hour, 2, ' ')}:${padInt(min, 2, '0')}${ampm}`;
+  }
+
+  addText(text) {
+    text.add(0, 32, this.toString(), 2, 2);
+  }
+};
 
 //------------------------------------------------------------------------------
 

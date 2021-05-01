@@ -4,6 +4,9 @@ const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
 const TILE_SIZE = 48;
 
+const NOCOLLIDE_LADDER_GIDS = [21, 31];
+const LADDER_GIDS = [21, 31, 32];
+
 let gl;
 let audio;
 let audioStarted = false;
@@ -384,31 +387,43 @@ class Level {
     }
   }
 
+  getCell(layer, x, y) {
+    if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
+      return null;
+    }
+    return layer.data[y * layer.width + x];
+  }
+
+  getCollisionCell(x, y) {
+    return this.getCell(this.data.layers[1], x, y);
+  }
+
+  getSegs(x, y) {
+    if (x < 0 || x >= this.collision.width || y < 0 ||
+        y >= this.collision.height) {
+      return null;
+    }
+    return this.collision.data[y * this.collision.width + x];
+  }
+
   doCollisionLayer(layer) {
     let collision = this.collision;
     collision.width = layer.width;
     collision.height = layer.height;
     collision.data = [];
 
-    function getCell(x, y) {
-      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
-        return null;
-      }
-      return collision.data[y * layer.width + x];
-    }
-
     for (let y = 0; y < layer.height; ++y) {
       for (let x = 0; x < layer.width; ++x) {
         let gid = layer.data[y * layer.width + x];
-        if (gid == 0)
+        if (gid == 0 || NOCOLLIDE_LADDER_GIDS.includes(gid))
           continue;
 
         const ts = TILE_SIZE;
         let px = x * ts;
         let py = y * ts;
 
-        let left = getCell(x - 1, y);
-        let top = getCell(x, y - 1);
+        let left = this.getSegs(x - 1, y);
+        let top = this.getSegs(x, y - 1);
 
         let rect = new Rect(px, py, ts, ts);
         let boxSegs = [
@@ -842,6 +857,14 @@ function onKeyDown(event) {
     case 'ArrowRight':
       smiley.moveRight(true);
       break;
+
+    case 'ArrowUp':
+      smiley.climbUp(true);
+      break;
+    case 'ArrowDown':
+      smiley.climbDown(true);
+      break;
+
     case ' ':
       smiley.jump();
       break;
@@ -864,6 +887,13 @@ function onKeyUp(event) {
       break;
     case ' ':
       smiley.unjump();
+      break;
+
+    case 'ArrowUp':
+      smiley.climbUp(false);
+      break;
+    case 'ArrowDown':
+      smiley.climbDown(false);
       break;
 
     case 'Shift':
@@ -971,6 +1001,8 @@ class Smiley {
     this.jumpTime = 30;
     this.jumpVel = -2 * this.jumpHeight / this.jumpTime;
     this.isJumping = false;
+    this.isClimbing = false;
+    this.gravity = 2 * this.jumpHeight / Math.pow(this.jumpTime, 2);
 
     this.x = level.startPos.x;
     this.y = level.startPos.y;
@@ -979,7 +1011,7 @@ class Smiley {
     this.dx = 0;
     this.dy = 0;
     this.ddx = 0;
-    this.ddy = 2 * this.jumpHeight / Math.pow(this.jumpTime, 2);
+    this.ddy = this.gravity;
     this.baseFrame = 10;
     this.frame = 10;
 
@@ -989,20 +1021,27 @@ class Smiley {
     this.accel = 0.55;
     this.drag = 0.85;
     this.maxvelX = 3;
+    this.climbAccel = 0.55;
+    this.maxClimbVel = 3;
 
     this.maxJump = -30;
     this.maxFall = 10;
 
     this.leftHeld = false;
     this.rightHeld = false;
+    this.upHeld = false;
+    this.downHeld = false;
   }
 
   moveLeft(held) { this.leftHeld = held; }
   moveRight(held) { this.rightHeld = held; }
+  climbUp(held) { this.upHeld = held; }
+  climbDown(held) { this.downHeld = held; }
 
   jump() {
     if (!this.isJumping) {
       this.isJumping = true;
+      this.isClimbing = false;
       this.dy = this.jumpVel;
     }
   }
@@ -1023,6 +1062,9 @@ class Smiley {
     } else if (this.ddx < 0) {
       this.baseFrame = 20;
       moving = true;
+    } else if (this.isClimbing) {
+      this.baseFrame = 40;
+      moving = this.ddy != 0;
     }
 
     if (moving) {
@@ -1043,30 +1085,10 @@ class Smiley {
   }
 
   doCollision() {
-    const dirs = [
-      {x : -1, y : -1},
-      {x : -1, y : 0},
-      {x : -1, y : +1},
-      {x : 0, y : -1},
-      {x : 0, y : +1},
-      {x : +1, y : -1},
-      {x : +1, y : 0},
-      {x : +1, y : +1},
-    ];
     let px = this.x;
     let py = this.y;
     let rad = 22; // a little less than tile width / 2
     let rad2 = rad * rad;
-    let tx = Math.floor(px / TILE_SIZE);
-    let ty = Math.floor(py / TILE_SIZE);
-    let layer = level.collision;
-
-    function getCell(x, y) {
-      if (x < 0 || x >= layer.width || y < 0 || y >= layer.height) {
-        return 0;
-      }
-      return layer.data[y * layer.width + x];
-    }
 
     function handleSeg(seg) {
       let cross = seg.cross(px, py);
@@ -1105,13 +1127,42 @@ class Smiley {
     }
 
     // Tile collision
-    for (let dir of dirs) {
-      let segs = getCell(tx + dir.x, ty + dir.y);
-      if (!segs)
-        continue;
+    let tx = Math.floor(px / TILE_SIZE);
+    let ty = Math.floor(py / TILE_SIZE);
+    let t0x = Math.floor((px - rad) / TILE_SIZE);
+    let t0y = Math.floor((py - rad) / TILE_SIZE);
+    let t1x = Math.floor((px + rad) / TILE_SIZE);
+    let t1y = Math.floor((py + rad) / TILE_SIZE);
+    let tiles = [{x: t0x, y: t0y}];
+    if (t0x != t1x) {
+      tiles.push({x: t1x, y: t0y});
+      if (t0y != t1y) {
+        tiles.push({x: t0x, y: t1y});
+        tiles.push({x: t1x, y: t1y});
+      }
+    } else if (t0y != t1y) {
+      tiles.push({x: t0x, y: t1y});
+    }
 
-      for (let seg of segs) {
-        handleSeg(seg);
+    for (let tile of tiles) {
+      let segs = level.getSegs(tile.x, tile.y);
+      let gid = level.getCollisionCell(tile.x, tile.y);
+      if (LADDER_GIDS.includes(gid) && this.isClimbing) continue;
+
+      if (segs) {
+        for (let seg of segs) {
+          handleSeg(seg);
+        }
+      }
+    }
+
+    // Ladders
+    if (this.isClimbing || this.upHeld || this.downHeld) {
+      let gid = level.getCollisionCell(tx, ty);
+      this.isClimbing = LADDER_GIDS.includes(gid);
+      // Try to align horizontally with the ladder if pressing up/down.
+      if (this.isClimbing && (this.upHeld || this.downHeld)) {
+        this.dx += ((tx + 0.5) * TILE_SIZE - px) * 0.01;
       }
     }
 
@@ -1136,11 +1187,22 @@ class Smiley {
   }
 
   update() {
+    if (this.isClimbing) {
+      this.ddy = this.climbAccel * ((this.downHeld|0) - (this.upHeld|0));
+    } else {
+      this.ddy = this.gravity;
+    }
+
     this.ddx = this.accel * ((this.rightHeld|0) - (this.leftHeld|0));
     this.lastX = this.x;
     this.lastY = this.y;
     this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);
-    this.dy = clamp(this.maxJump, this.dy + this.ddy, this.maxFall);
+    if (this.isClimbing) {
+      this.dy = clamp(-this.maxClimbVel, (this.dy + this.ddy) * this.drag,
+                      this.maxClimbVel);
+    } else {
+      this.dy = clamp(this.maxJump, this.dy + this.ddy, this.maxFall);
+    }
     this.x += this.dx;
     this.y += this.dy;
 

@@ -642,11 +642,8 @@ function onKeyDown(event) {
     case 'ArrowRight':
       smiley.moveRight();
       break;
-    case 'ArrowUp':
-      smiley.moveUp();
-      break;
-    case 'ArrowDown':
-      smiley.moveDown();
+    case ' ':
+      smiley.jump();
       break;
 
     case 'Shift':
@@ -662,11 +659,6 @@ function onKeyUp(event) {
     case 'ArrowLeft':
     case 'ArrowRight':
       smiley.stopHoriz();
-      break;
-
-    case 'ArrowUp':
-    case 'ArrowDown':
-      smiley.stopVert();
       break;
 
     case 'Shift':
@@ -707,7 +699,7 @@ class Smiley {
     this.dx = 0;
     this.dy = 0;
     this.ddx = 0;
-    this.ddy = 0;
+    this.ddy = 1;
     this.baseFrame = 10;
     this.frame = 10;
 
@@ -716,15 +708,19 @@ class Smiley {
 
     this.accel = 0.55;
     this.drag = 0.85;
-    this.maxvel = 3;
+    this.maxvelX = 3;
+    this.maxJump = -30;
+    this.maxFall = 10;
   }
 
   moveLeft() { this.ddx = -this.accel; }
   moveRight() { this.ddx = +this.accel; }
-  moveUp() { this.ddy = -this.accel; }
-  moveDown() { this.ddy = +this.accel; }
   stopHoriz() { this.ddx = 0; }
-  stopVert() { this.ddy = 0; }
+
+  jump() {
+    this.ddy = -1;
+    this.dy = -5;
+  }
 
   doAnim() {
     let moving = false;
@@ -733,12 +729,6 @@ class Smiley {
       moving = true;
     } else if (this.ddx < 0) {
       this.baseFrame = 20;
-      moving = true;
-    } else if (this.ddy > 0) {
-      this.baseFrame = 30;
-      moving = true;
-    } else if (this.ddy < 0) {
-      this.baseFrame = 40;
       moving = true;
     }
 
@@ -840,8 +830,9 @@ class Smiley {
   }
 
   update() {
-    this.dx = clamp(-this.maxvel, (this.dx + this.ddx) * this.drag, this.maxvel);
-    this.dy = clamp(-this.maxvel, (this.dy + this.ddy) * this.drag, this.maxvel);
+    this.ddy = clamp(-1, this.ddy + 0.05, 1);
+    this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);
+    this.dy = clamp(this.maxJump, (this.dy + this.ddy) * this.drag, this.maxFall);
     this.x += this.dx;
     this.y += this.dy;
 

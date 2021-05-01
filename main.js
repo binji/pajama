@@ -762,6 +762,8 @@ class Smiley {
         Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
     this.x = level.startPos.x;
     this.y = level.startPos.y;
+    this.lastX = this.x;
+    this.lastY = this.y;
     this.dx = 0;
     this.dy = 0;
     this.ddx = 0;
@@ -888,6 +890,8 @@ class Smiley {
   }
 
   update() {
+    this.lastX = this.x;
+    this.lastY = this.y;
     this.ddy = clamp(-1, this.ddy + 0.05, 1);
     this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);
     this.dy = clamp(this.maxJump, (this.dy + this.ddy) * this.drag, this.maxFall);
@@ -903,7 +907,8 @@ class Smiley {
   }
 
   draw(shader, dt) {
-    this.sprite.objMat.setTranslate(this.x - this.dx * dt, this.y - this.dy * dt);
+    this.sprite.objMat.setTranslate(lerp(dt, this.x, this.lastX),
+                                    lerp(dt, this.y, this.lastY));
     draw(smiley.sprite, shader);
   }
 };
@@ -956,8 +961,8 @@ class Camera {
 
     let curZoom = this.zoom - (this.zoom - this.lastZoom) * dt;
     this.mat.setTranslate(
-        -(this.x - (this.x - this.lastX) * dt + zoomPosX) * curZoom + zoomPosX,
-        -(this.y - (this.y - this.lastY) * dt + zoomPosY) * curZoom + zoomPosY);
+        -(lerp(dt, this.x, this.lastX) + zoomPosX) * curZoom + zoomPosX,
+        -(lerp(dt, this.y, this.lastY) + zoomPosY) * curZoom + zoomPosY);
     this.mat.setScale(curZoom, curZoom);
   }
 };

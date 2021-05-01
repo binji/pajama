@@ -8,6 +8,9 @@ let gl;
 let audio;
 let audioStarted = false;
 
+//------------------------------------------------------------------------------
+// Math stuff
+
 function clamp(min, x, max) {
   return Math.min(Math.max(x, min), max);
 }
@@ -27,6 +30,86 @@ function rand(lo, hi) {
 
 function randInt(lo, hi) {
   return Math.floor(rand(lo, hi));
+}
+
+function dist2(x0, y0, x1, y1) {
+  return (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0);
+}
+
+class Segment {
+  constructor(x0, y0, x1, y1) {
+    this.x0 = x0;
+    this.y0 = y0;
+    this.x1 = x1;
+    this.y1 = y1;
+  }
+
+  translate(x, y) {
+    this.x0 += x;
+    this.x1 += x;
+    this.y0 += y;
+    this.y1 += y;
+    return this;
+  }
+
+  dist2() { return dist2(this.x0, this.y0, this.x1, this.y1); }
+
+  dot(x, y) {
+    return (x - this.x0) * (this.x1 - this.x0) +
+           (y - this.y0) * (this.y1 - this.y0);
+  }
+
+  cross(x, y) {
+    return (x - this.x0) * (this.y1 - this.y0) -
+           (y - this.y0) * (this.x1 - this.x0);
+  }
+}
+
+class Rect {
+  constructor(x, y, w, h) {
+    this.x = x;
+    this.y = y;
+    this.w = w;
+    this.h = h;
+  }
+
+  static makeCenterRadius(x, y, rad) {
+    return new Rect(x - rad, y - rad, rad * 2, rad * 2);
+  }
+
+  static makeExtents(x0, y0, x1, y1) {
+    return new Rect(x0, y0, x1 - x0, y1 - y0);
+  }
+
+  setTranslate(x, y) {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+
+  topSeg() { return new Segment(this.x, this.y, this.x + this.w, this.y); }
+
+  leftSeg() { return new Segment(this.x, this.y + this.h, this.x, this.y); }
+
+  bottomSeg() {
+    return new Segment(this.x + this.w, this.y + this.h, this.x,
+                       this.y + this.h);
+  }
+
+  rightSeg() {
+    return new Segment(this.x + this.w, this.y, this.x + this.w,
+                       this.y + this.h);
+  }
+
+  contains(x, y) {
+    return x >= this.x && x < this.x + this.w &&
+           y >= this.y && y < this.y + this.h;
+  }
+
+  intersects(rect) {
+    return rect.x + rect.w >= this.x || rect.x <= this.x + this.w ||
+           rect.y + rect.h >= this.y || rect.y <= this.x + this.h;
+  }
 }
 
 class Mat3 {
@@ -338,11 +421,9 @@ async function loadLevel(asset) {
         let left = getCell(x - 1, y);
         let top = getCell(x, y - 1);
 
+        let rect = new Rect(px, py, ts, ts);
         let boxSegs = [
-          {x0: px + 0,  y0: py + 0,  x1: px + ts, y1 : py + 0},  // top
-          {x0: px + 0,  y0: py + ts, x1: px + 0,  y1 : py + 0}, // left
-          {x0: px + ts, y0: py + ts, x1: px + 0,  y1 : py + ts}, // bottom
-          {x0: px + ts, y0: py + 0,  x1: px + ts, y1 : py + ts}, // right
+          rect.topSeg(), rect.leftSeg(), rect.bottomSeg(), rect.rightSeg()
         ];
 
         if (left != null) {
@@ -767,16 +848,12 @@ let platforms;
 // Collision detection
 // see https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
 
-function dist2(v0x, v0y, v1x, v1y) {
-  return (v0x - v1x) * (v0x - v1x) + (v0y - v1y) * (v0y - v1y);
-}
-
-function distToLineSegment2(px, py, v0x, v0y, v1x, v1y) {
-  let l2 = dist2(v0x, v0y, v1x, v1y);
+function distToLineSegment2(px, py, seg) {
+  let l2 = seg.dist2();
   if (l2 == 0) { throw 'no'; }
-  let t = clamp(0, ((px - v0x) * (v1x - v0x) + (py - v0y) * (v1y - v0y)) / l2, 1);
-  let ix = v0x + t * (v1x - v0x);
-  let iy = v0y + t * (v1y - v0y);
+  let t = clamp(0, seg.dot(px, py) / l2, 1);
+  let ix = seg.x0 + t * (seg.x1 - seg.x0);
+  let iy = seg.y0 + t * (seg.y1 - seg.y0);
   return {dist2: dist2(px, py, ix, iy), ix, iy};
 }
 
@@ -959,45 +1036,39 @@ class Smiley {
     }
 
     function handleSeg(seg) {
-      let cross =
-          (px - seg.x0) * (seg.y1 - seg.y0) - (py - seg.y0) * (seg.x1 - seg.x0);
+      let cross = seg.cross(px, py);
       if (cross < 0) return false;
 
-      let {dist2, ix, iy} =
-          distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
+      let {dist2, ix, iy} = distToLineSegment2(px, py, seg);
 
       if (dist2 < rad2) {
         // push away along vec between object and segment.
         let dist = Math.sqrt(dist2);
-        let pushx = (rad - dist) * (px - ix) / dist;
-        let pushy = (rad - dist) * (py - iy) / dist;
-        px += pushx;
-        py += pushy;
+        let push = (rad - dist) / dist;
+        px += (px - ix) * push;
+        py += (py - iy) * push;
         return true;
       }
       return false;
     }
 
+    let smileRect = Rect.makeCenterRadius(this.x, this.y, rad);
+
     // Platform collision
+    let rect = new Rect(0, 0, 48 * 3, 48);
     for (let obj of platforms.objs) {
       let ox = obj.x;
       let oy = obj.y;
-      const w = 48 * 3;
-      const h = 48;
 
-      if (this.x + rad >= ox || this.x - rad <= ox + w || this.y + rad >= oy ||
-          this.y - rad <= oy + h) {
+      rect.setTranslate(ox, oy);
 
-        // left
-        handleSeg({x0: ox + 0, y0: oy + h, x1: ox + 0, y1 : oy + 0});
-        //bottom
-        handleSeg({x0: ox + w, y0: oy + h, x1: ox + 0, y1 : oy + h});
-        // right
-        handleSeg({x0: ox + w, y0: oy + 0, x1: ox + w, y1 : oy + h});
+      if (smileRect.intersects(rect)) {
+        handleSeg(rect.leftSeg());
+        handleSeg(rect.bottomSeg());
+        handleSeg(rect.rightSeg());
 
         // Riding on top of the platform
-        let seg = {x0: ox + 0, y0: oy + 20, x1: ox + w, y1 : oy + 20};
-        if (handleSeg(seg)) {
+        if (handleSeg(rect.topSeg().translate(0, 20))) {
           let dx = obj.x - obj.lastX;
           let dy = obj.y - obj.lastY;
           px += dx;

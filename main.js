@@ -1,5 +1,5 @@
-const SCREEN_WIDTH = 480;
-const SCREEN_HEIGHT = 270;
+const SCREEN_WIDTH = 1440;
+const SCREEN_HEIGHT = 810;
 const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
 const TILE_SIZE = 48;
@@ -527,9 +527,12 @@ class ParticleSystem {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     this.texture = texture;
     this.texBuffer = new Uint8Array(TEX_WIDTH * TEX_HEIGHT * 4);
+    this.scale = 3;
 
-    this.sprite = Sprite.makeQuad(texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT),
-      Mat3.makeScale(SCREEN_WIDTH / TEX_WIDTH, SCREEN_HEIGHT / TEX_HEIGHT));
+    this.sprite = Sprite.makeQuad(
+        texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT),
+        Mat3.makeScale(SCREEN_WIDTH / (this.scale * TEX_WIDTH),
+                       SCREEN_HEIGHT / (this.scale * TEX_HEIGHT)));
     this.particles = [];
   }
 
@@ -573,8 +576,8 @@ class ParticleSystem {
     }
 
     for (let p of this.particles) {
-      let x = p.x - p.dx * dt - camX;
-      let y = p.y - p.dy * dt - camY;
+      let x = (p.x - p.dx * dt - camX) / this.scale;
+      let y = (p.y - p.dy * dt - camY) / this.scale;
       if (x < 0 || x >= TEX_WIDTH || y < 0 || y >= TEX_HEIGHT) {
         continue;
       }
@@ -634,7 +637,7 @@ function makeTextureShader() {
       varying highp vec2 vTexCoord;
 
       void main(void) {
-        float w = 480.0, h = 270.0;
+        float w = 1440.0, h = 810.0;
         mat3 proj = mat3(2.0 / w,         0,  0,
                                0,  -2.0 / h,  0,
                             -1.0,       1.0,  0);

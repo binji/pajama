@@ -7,9 +7,24 @@ const TILE_SIZE = 48;
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
 const LADDER_GIDS = [21, 31, 32];
 
+function makeKeys() {
+  return {
+    up : false,
+    left : false,
+    right : false,
+    down : false,
+    shift : false,
+    jump : false
+  };
+}
+
 let gl;
 let audio;
 let audioStarted = false;
+let lastKeys = makeKeys();
+let keyState = makeKeys();
+let keyPressed = makeKeys();
+let keyReleased = makeKeys();
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -837,10 +852,22 @@ function uploadTex(texture, data) {
 }
 
 let smiley;
-let shiftHeld = false;
+
+const keymap = {
+  'ArrowLeft' : 'left',
+  'ArrowRight' : 'right',
+  'ArrowUp' : 'up',
+  'ArrowDown' : 'down',
+  ' ' : 'jump',
+  'Shift' : 'shift',
+};
 
 function onKeyDown(event) {
   maybeResumeAudio();
+
+  if (event.key in keymap) {
+    keyState[keymap[event.key]] = true;
+  }
 
   switch (event.key) {
     case 'p':
@@ -850,55 +877,22 @@ function onKeyDown(event) {
     case 'm':
       playMusic(assets.doots);
       break;
-
-    case 'ArrowLeft':
-      smiley.moveLeft(true);
-      break;
-    case 'ArrowRight':
-      smiley.moveRight(true);
-      break;
-
-    case 'ArrowUp':
-      smiley.climbUp(true);
-      break;
-    case 'ArrowDown':
-      smiley.climbDown(true);
-      break;
-
-    case ' ':
-      smiley.jump();
-      break;
-
-    case 'Shift':
-      shiftHeld = true;
-      break;
   }
 }
 
 function onKeyUp(event) {
   maybeResumeAudio();
 
-  switch (event.key) {
-    case 'ArrowLeft':
-      smiley.moveLeft(false);
-      break;
-    case 'ArrowRight':
-      smiley.moveRight(false);
-      break;
-    case ' ':
-      smiley.unjump();
-      break;
+  if (event.key in keymap) {
+    keyState[keymap[event.key]] = false;
+  }
+}
 
-    case 'ArrowUp':
-      smiley.climbUp(false);
-      break;
-    case 'ArrowDown':
-      smiley.climbDown(false);
-      break;
-
-    case 'Shift':
-      shiftHeld = false;
-      break;
+function updateKeys() {
+  for (let key in keyState) {
+    keyPressed[key] = keyState[key] && !lastKeys[key];
+    keyReleased[key] = !keyState[key] && lastKeys[key];
+    lastKeys[key] = keyState[key];
   }
 }
 
@@ -1026,17 +1020,7 @@ class Smiley {
 
     this.maxJump = -30;
     this.maxFall = 10;
-
-    this.leftHeld = false;
-    this.rightHeld = false;
-    this.upHeld = false;
-    this.downHeld = false;
   }
-
-  moveLeft(held) { this.leftHeld = held; }
-  moveRight(held) { this.rightHeld = held; }
-  climbUp(held) { this.upHeld = held; }
-  climbDown(held) { this.downHeld = held; }
 
   jump() {
     if (!this.isJumping) {
@@ -1157,11 +1141,11 @@ class Smiley {
     }
 
     // Ladders
-    if (this.isClimbing || this.upHeld || this.downHeld) {
+    if (this.isClimbing || keyState.up|| keyState.down) {
       let gid = level.getCollisionCell(tx, ty);
       this.isClimbing = LADDER_GIDS.includes(gid);
       // Try to align horizontally with the ladder if pressing up/down.
-      if (this.isClimbing && (this.upHeld || this.downHeld)) {
+      if (this.isClimbing && (keyState.up || keyState.down)) {
         this.dx += ((tx + 0.5) * TILE_SIZE - px) * 0.01;
       }
     }
@@ -1187,13 +1171,19 @@ class Smiley {
   }
 
   update() {
+    if (keyPressed.jump) {
+      this.jump();
+    } else if (keyReleased.jump) {
+      this.unjump();
+    }
+
     if (this.isClimbing) {
-      this.ddy = this.climbAccel * ((this.downHeld|0) - (this.upHeld|0));
+      this.ddy = this.climbAccel * ((keyState.down|0) - (keyState.up|0));
     } else {
       this.ddy = this.gravity;
     }
 
-    this.ddx = this.accel * ((this.rightHeld|0) - (this.leftHeld|0));
+    this.ddx = this.accel * ((keyState.right|0) - (keyState.left|0));
     this.lastX = this.x;
     this.lastY = this.y;
     this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);
@@ -1260,7 +1250,7 @@ class Camera {
       this.y = Math.min(level.height - SCREEN_HEIGHT, smiley.y - pushBox.b);
     }
 
-    this.zoom = shiftHeld ? 2.0 : 1.0;
+    this.zoom = keyState.shift ? 2.0 : 1.0;
   }
 
   draw(dt) {
@@ -1365,7 +1355,7 @@ async function start() {
     gl.clearColor(0, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let timeScale = !shiftHeld ? 1 : 0.33;
+    let timeScale = !keyState.shift ? 1 : 0.33;
     updateRemainder += elapsed * timeScale;
     let maxUpdates = 20;
     while (updateRemainder > updateMs && maxUpdates > 0) {
@@ -1375,6 +1365,8 @@ async function start() {
         // don't run in fast-forward for the forseeable future
         updateRemainder = 0;
       }
+
+      updateKeys();
 
       smiley.update();
 

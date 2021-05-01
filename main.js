@@ -597,6 +597,7 @@ class Level {
           y : object.y,
           w : object.width,
           h : object.height,
+          kind : getProperty(object, 'kind'),
         });
         break;
 
@@ -1362,14 +1363,21 @@ class Smiley {
 //------------------------------------------------------------------------------
 // Pickups, collectibles, non-player world objects
 
+const PICKUP_KIND = {
+  // numbers correspond with sprite frame ids
+  carrot: 50,
+  tomato: 51,
+  chicken: 52,
+};
+
 class Pickup {
-  constructor(x, y, onCollect) {
+  constructor(kind, x, y, onCollect) {
     this.x = x;
     this.y = y;
     this.lastX = this.x;
     this.lastY = this.y;
 
-    this.frame = 0;
+    this.frame = PICKUP_KIND[kind];
     this.onCollect = onCollect;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
@@ -1408,7 +1416,7 @@ class Pickups {
     let region = randElem(level.pickupRegions);
     let x = rand(region.x, region.x+region.w);
     let y = rand(region.y, region.y+region.h);
-    this.objs.push(new Pickup(x, y, (p) => {
+    this.objs.push(new Pickup(region.kind, x, y, (p) => {
       playSound(assets.boom);
       for (let i = 0; i < 375; ++i) {
         let t = rand(2*PI);
@@ -1429,6 +1437,8 @@ class Pickups {
   draw(shader, dt) {
     // todo: use spritebatch
     for (let pickup of this.objs) {
+      let texPos = getSpriteTexPos(pickup.frame);
+      this.sprite.texMat.setTranslate(texPos.x, texPos.y);
       this.sprite.objMat.setTranslate(lerp(dt, pickup.x, pickup.lastX),
                                       lerp(dt, pickup.y, pickup.lastY));
       draw(this.sprite, shader);

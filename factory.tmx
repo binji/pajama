@@ -234,8 +234,20 @@
   <object id="14" type="platform" x="1249.33" y="2734.67">
    <polygon points="0,0 0,-209.333 4,-81.3333"/>
   </object>
-  <object id="15" type="pickup-spawn" x="182.667" y="2702.67" width="895.333" height="50"/>
-  <object id="16" type="pickup-spawn" x="685.333" y="2940.33" width="936" height="50"/>
-  <object id="17" type="pickup-spawn" x="81.9998" y="2449" width="1533.33" height="50"/>
+  <object id="15" type="pickup-spawn" x="182.667" y="2702.67" width="895.333" height="50">
+   <properties>
+    <property name="kind" value="tomato"/>
+   </properties>
+  </object>
+  <object id="16" type="pickup-spawn" x="685.333" y="2940.33" width="936" height="50">
+   <properties>
+    <property name="kind" value="carrot"/>
+   </properties>
+  </object>
+  <object id="17" type="pickup-spawn" x="81.9998" y="2449" width="1533.33" height="50">
+   <properties>
+    <property name="kind" value="chicken"/>
+   </properties>
+  </object>
  </objectgroup>
 </map>

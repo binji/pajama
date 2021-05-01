@@ -253,6 +253,7 @@ async function loadLevel(asset) {
     },
     triggers: [],
     emitters: [],
+    platforms: [],
     startPos: {x: 0, y: 0},
     stairPos: {x: 0, y: 0},
     width: 0,
@@ -398,6 +399,16 @@ async function loadLevel(asset) {
           level.stairPos.x = object.x;
           level.stairPos.y = object.y;
           break;
+
+        case 'platform': {
+          let x = object.x, y = object.y;
+          let points = [];
+          for (let point of object.polygon) {
+            points.push({x: x + point.x, y: y + point.y});
+          }
+          level.platforms.push({points});
+          break;
+        }
 
         case 'particle-emitter':
           level.emitters.push({
@@ -760,6 +771,75 @@ function distToLineSegment2(px, py, v0x, v0y, v1x, v1y) {
 let font;
 let text;
 
+//------------------------------------------------------------------------------
+// Platforms
+
+class Platforms {
+  constructor(texture) {
+    this.batch = new SpriteBatch(texture);
+    this.objs = [];
+
+    // TODO: handle level changes better
+    for (let platform of level.platforms) {
+      let obj = {
+        lastX : 0,
+        lastY : 0,
+        x : 0,
+        y : 0,
+        speed : 0,
+        t : 0,
+        index : 0,
+        points : platform.points,
+      };
+      this.setIndex(obj, 0);
+      this.objs.push(obj);
+    }
+  }
+
+  setIndex(obj, index) {
+    obj.index = index;
+    let p0 = obj.points[obj.index];
+    let p1 = obj.points[(obj.index + 1) % obj.points.length];
+    let dx = p1.x - p0.x;
+    let dy = p1.y - p0.y;
+    let dist = Math.sqrt(dx * dx + dy * dy);
+
+    obj.speed = 1 / dist;
+  }
+
+  update() {
+    for (let obj of this.objs) {
+      obj.t += obj.speed;
+      if (obj.t >= 1) {
+        obj.t -= 1;
+        this.setIndex(obj, (obj.index + 1) % obj.points.length);
+      }
+
+      let p0 = obj.points[obj.index];
+      let p1 = obj.points[(obj.index + 1) % obj.points.length];
+      obj.lastX = obj.x;
+      obj.lastY = obj.y;
+      obj.x = lerp(obj.t, p0.x, p1.x);
+      obj.y = lerp(obj.t, p0.y, p1.y);
+    }
+  }
+
+  draw(shader, dt) {
+    this.batch.reset();
+    for (let obj of this.objs) {
+      this.batch.pushFrame(lerp(dt, obj.x, obj.lastX),
+                           lerp(dt, obj.y, obj.lastY), 0, TILE_SIZE * 3,
+                           TILE_SIZE, TILE_SIZE * 3 / TEX_WIDTH,
+                           TILE_SIZE / TEX_WIDTH);
+    }
+    this.batch.upload();
+    draw(this.batch.sprite, shader);
+  }
+};
+
+//------------------------------------------------------------------------------
+// Smiley
+
 class Smiley {
   constructor(texture) {
     this.sprite = Sprite.makeQuad(
@@ -1058,6 +1138,9 @@ async function start() {
   smiley = new Smiley(spriteTexture);
   const bouncies = new Bouncies(spriteTexture);
 
+  const factoryTexture = makeTexture(assets.factoryTiles);
+  const platforms = new Platforms(factoryTexture);
+
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
 
@@ -1106,6 +1189,7 @@ async function start() {
       camera.update();
       bouncies.update();
       particles.update();
+      platforms.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
@@ -1116,6 +1200,7 @@ async function start() {
     draw(level.sprite, shader);
 
     bouncies.draw(shader, dt);
+    platforms.draw(shader, dt);
     smiley.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);

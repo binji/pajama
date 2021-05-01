@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="4" nextobjectid="2">
+<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="4" nextobjectid="6">
  <editorsettings>
   <export target="factory.json" format="json"/>
  </editorsettings>
@@ -145,6 +145,9 @@
  <objectgroup id="3" name="Objects">
   <object id="1" type="player" x="51.0134" y="957.919">
    <point/>
+  </object>
+  <object id="5" type="platform" x="90.6667" y="912">
+   <polygon points="0,0 337.333,-38.6667 194.667,34.6667"/>
   </object>
  </objectgroup>
 </map>

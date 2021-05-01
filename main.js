@@ -191,6 +191,14 @@ class Mat3 {
 
   static makeTranslate(tx, ty) { return (new Mat3()).setTranslate(tx, ty); }
 
+  static makeTileObj() {
+    return Mat3.makeScale(TILE_SIZE, TILE_SIZE);
+  }
+
+  static makeTileTex() {
+    return Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT);
+  }
+
   setIdentity() {
     this.m.set([1, 0, 0, 0, 1, 0, 0, 0, 1]);
     return this;
@@ -1010,6 +1018,42 @@ function updateKeys() {
   }
 }
 
+function convertEventMouseLocation(event) {
+  const target = event.target;
+  const cw = target.clientWidth, ch = target.clientHeight;
+  const clientAspect = cw / ch;
+  const wantedAspect = SCREEN_WIDTH / SCREEN_HEIGHT;
+  let scalex, scaley, ow, oh;
+
+  if (clientAspect < wantedAspect) {
+    // top+bottom bars
+    ow = 0;
+    oh = (ch - cw / wantedAspect) / 2;
+    scalex = cw;
+    scaley = ch - oh * 2;
+  } else {
+    // left+right bars
+    ow = (cw - ch * wantedAspect) / 2;
+    oh = 0;
+    scalex = cw - ow * 2;
+    scaley = ch;
+  }
+  let offsetX = event.clientX - target.offsetLeft;
+  let offsetY = event.clientY - target.offsetTop;
+
+  return [
+    SCREEN_WIDTH * (offsetX - ow) / scalex,
+    SCREEN_HEIGHT * (offsetY - oh) / scaley
+  ];
+}
+
+function onMouseEvent(event) {
+  let [x, y] = convertEventMouseLocation(event);
+  if (ui.cursor) {
+    ui.cursor.objMat.setTranslate(x, y);
+  }
+}
+
 //------------------------------------------------------------------------------
 // Collision detection
 // see https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
@@ -1096,9 +1140,8 @@ class Platforms {
 
 class Smiley {
   constructor(texture) {
-    this.sprite = Sprite.makeQuad(
-        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
-        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+    this.sprite =
+        Sprite.makeQuad(texture, Mat3.makeTileObj(), Mat3.makeTileTex());
     this.jumpHeight = 100;
     this.jumpTime = 30;
     this.jumpVel = -2 * this.jumpHeight / this.jumpTime;
@@ -1508,6 +1551,11 @@ class UI {
     this.toast = new Toast();
     this.text = new Text(font);
     this.clock = new Clock();
+    this.cursor = Sprite.makeQuad(assets.sprites.data.texture,
+                                  Mat3.makeTileObj(), Mat3.makeTileTex());
+
+    let {x, y} = getSpriteTexPos(2);
+    this.cursor.texMat.setTranslate(x, y);
   }
 
   showMessage(message) {
@@ -1530,6 +1578,7 @@ class UI {
     this.text.upload();
     this.text.draw(shader, dt);
     this.toast.draw(shader, dt);
+    draw(this.cursor, shader);
   }
 }
 
@@ -1642,6 +1691,9 @@ async function start() {
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
+  canvas.onmousemove = onMouseEvent;
+  canvas.onmousedown = onMouseEvent;
+  canvas.onmouseup = onMouseEvent;
 
   let camera = new Camera();
   particles = new ParticleSystem();

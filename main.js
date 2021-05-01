@@ -32,6 +32,7 @@ let assets;
 let smiley;
 let level;
 let platforms;
+let pickups;
 let font;
 let text;
 let camMat;
@@ -58,6 +59,10 @@ function rand(lo, hi) {
 
 function randInt(lo, hi) {
   return Math.floor(rand(lo, hi));
+}
+
+function randSign() {
+  return 2 * randInt(2) - 1;
 }
 
 function dist2(x0, y0, x1, y1) {
@@ -320,6 +325,7 @@ class Level {
     this.triggers = [];
     this.emitters = [];
     this.platforms = [];
+    this.pickups = [];
     this.startPos = {x : 0, y : 0};
     this.width = 0;
     this.height = 0;
@@ -1172,6 +1178,16 @@ class Smiley {
       }
     }
 
+    // Pickups
+    for (let i = 0; i < pickups.length; ++i) {
+      let pickup = pickups[i];
+      if (smileRect.intersects(pickup.rect)) {
+        pickup.onCollect();
+        pickups.splice(i, 1);
+        i--;
+      }
+    }
+
     this.x = px;
     this.y = py;
   }
@@ -1232,6 +1248,32 @@ class Smiley {
     draw(this.sprite, shader);
   }
 };
+
+//------------------------------------------------------------------------------
+// Pickups, collectibles, non-player world objects
+
+class Pickup {
+  constructor(texture, x, y, onCollect) {
+    this.sprite = Sprite.makeQuad(
+        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
+        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+    this.x = x;
+    this.y = y;
+    this.lastX = this.x;
+    this.lastY = this.y;
+
+    this.frame = 0;
+    this.onCollect = onCollect;
+
+    this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
+  }
+
+  draw(shader, dt) {
+    this.sprite.objMat.setTranslate(lerp(dt, this.x, this.lastX),
+                                    lerp(dt, this.y, this.lastY));
+    draw(this.sprite, shader);
+  }
+}
 
 //------------------------------------------------------------------------------
 // Camera
@@ -1353,6 +1395,7 @@ async function start() {
   const bouncies = new Bouncies(assets.sprites.data.texture);
 
   platforms = new Platforms(assets.factoryTiles.data.texture);
+  pickups = [];
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
@@ -1388,6 +1431,14 @@ async function start() {
 
       smiley.update();
 
+      // if (pickups.length == 0) {
+      //   let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
+      //   if (x < 40) { x += 1000; }
+      //   pickups.push(new Pickup(assets.sprites.data.texture, x, level.startPos.y, () => {
+      //     console.log("yeah man");
+      //   }));
+      // }
+
       for (let i = 0; i < 2; ++i) {
         particles.spawn({
           x: smiley.x + rand(-1,1)*TILE_SIZE/4, y: smiley.y + rand(-1,1)*TILE_SIZE/2,
@@ -1422,6 +1473,10 @@ async function start() {
     bouncies.draw(shader, dt);
     platforms.draw(shader, dt);
     smiley.draw(shader, dt);
+    for (let pickup of pickups) {
+      pickup.draw(shader, dt);
+    }
+
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
     particles.draw(shader, camera, dt);

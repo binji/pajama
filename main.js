@@ -1346,53 +1346,6 @@ class Camera {
   }
 };
 
-//------------------------------------------------------------------------------
-// Bouncies
-
-class Bouncies {
-  constructor(texture) {
-    this.batch = new SpriteBatch(texture);
-    this.objs = [];
-    for (let i = 0; i < 100; ++i) {
-      this.objs.push({
-        x: rand(assets.factory.data.width),
-        y: rand(assets.factory.data.height),
-        dx: rand(-1, 1),
-        dy: rand(-1, 1),
-        size: rand(8, 48),
-        frame: randInt(2, 4),
-      });
-    }
-  }
-
-  update() {
-    for (let obj of this.objs) {
-      obj.x += obj.dx;
-      obj.y += obj.dy;
-
-      if (obj.x < obj.size || obj.x > level.width - obj.size) {
-        obj.x = clamp(obj.size, obj.x + obj.dx, level.width - obj.size);
-        obj.dx = -obj.dx;
-      }
-
-      if (obj.y < obj.size || obj.y > level.height - obj.size) {
-        obj.y = clamp(obj.size, obj.y + obj.dy, level.height - obj.size);
-        obj.dy = -obj.dy;
-      }
-    }
-  }
-
-  draw(shader, dt) {
-    this.batch.reset();
-    for (let obj of this.objs) {
-      this.batch.pushFrame(obj.x - obj.dx * dt, obj.y - obj.dy * dt, obj.frame,
-                           obj.size, obj.size);
-    }
-    this.batch.upload();
-    draw(this.batch.sprite, shader);
-  }
-}
-
 
 //------------------------------------------------------------------------------
 
@@ -1408,7 +1361,6 @@ async function start() {
   font = makeFont();
   text = null;
   smiley = new Smiley(assets.sprites.data.texture);
-  const bouncies = new Bouncies(assets.sprites.data.texture);
 
   platforms = new Platforms(assets.factoryTiles.data.texture);
   pickups = [];
@@ -1474,7 +1426,6 @@ async function start() {
       }
 
       camera.update();
-      bouncies.update();
       particles.update();
       platforms.update();
     }
@@ -1486,7 +1437,6 @@ async function start() {
     camMat = camera.mat;
     draw(level.sprite, shader);
 
-    bouncies.draw(shader, dt);
     platforms.draw(shader, dt);
     smiley.draw(shader, dt);
     for (let pickup of pickups) {

@@ -947,6 +947,22 @@ class Smiley {
       return layer.data[y * layer.width + x];
     }
 
+    function handleSeg(seg) {
+      let {dist2, ix, iy} =
+          distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
+
+      if (dist2 < rad2) {
+        // push away along vec between object and segment.
+        let dist = Math.sqrt(dist2);
+        let pushx = (rad - dist) * (px - ix) / dist;
+        let pushy = (rad - dist) * (py - iy) / dist;
+        px += pushx;
+        py += pushy;
+        return true;
+      }
+      return false;
+    }
+
     // Platform collision
     for (let obj of platforms.objs) {
       let ox = obj.x;
@@ -957,24 +973,22 @@ class Smiley {
       if (this.x + rad >= ox || this.x - rad <= ox + w || this.y + rad >= oy ||
           this.y - rad < oy + h) {
         let segs = [
-          {x0: ox + 0, y0: oy + 0, x1: ox + w, y1 : oy + 0}, // top
           {x0: ox + 0, y0: oy + 0, x1: ox + 0, y1 : oy + h}, // left
           {x0: ox + 0, y0: oy + h, x1: ox + w, y1 : oy + h}, // bottom
           {x0: ox + w, y0: oy + 0, x1: ox + w, y1 : oy + h}, // right
         ];
 
         for (let seg of segs) {
-          let {dist2, ix, iy} =
-              distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
+          handleSeg(seg);
+        }
 
-          if (dist2 < rad2) {
-            // push away along vec between object and segment.
-            let dist = Math.sqrt(dist2);
-            let pushx = (rad - dist) * (px - ix) / dist;
-            let pushy = (rad - dist) * (py - iy) / dist;
-            px += pushx;
-            py += pushy;
-          }
+        // Riding on top of the platform
+        let seg = {x0: ox + 0, y0: oy + 0, x1: ox + w, y1 : oy + 0};
+        if (handleSeg(seg)) {
+          let dx = obj.x - obj.lastX;
+          let dy = obj.y - obj.lastY;
+          px += dx;
+          py += dy;
         }
       }
     }
@@ -986,17 +1000,7 @@ class Smiley {
         continue;
 
       for (let seg of segs) {
-        let {dist2, ix, iy} =
-            distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
-
-        if (dist2 < rad2) {
-          // push away along vec between object and segment.
-          let dist = Math.sqrt(dist2);
-          let pushx = (rad - dist) * (px - ix) / dist;
-          let pushy = (rad - dist) * (py - iy) / dist;
-          px += pushx;
-          py += pushy;
-        }
+        handleSeg(seg);
       }
     }
 

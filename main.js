@@ -278,8 +278,6 @@ let assets = {
   font: {filename: 'font.png', type: 'image', data: null},
   factoryTiles: {filename: 'factory_tiles.png', type: 'image', data: null},
 
-  testing: {filename: 'testing.json', type: 'level', data: null, depends: ['tiles']},
-  tiny: {filename: 'tiny.json', type: 'level', data: null, depends: ['tiles']},
   factory: {filename: 'factory.json', type: 'level', data: null, depends: ['factoryTiles']},
 
   boom: {filename: 'boom.mp3', type: 'sfx', data: null},
@@ -338,7 +336,6 @@ async function loadLevel(asset) {
     emitters: [],
     platforms: [],
     startPos: {x: 0, y: 0},
-    stairPos: {x: 0, y: 0},
     width: 0,
     height: 0,
   };
@@ -473,20 +470,6 @@ async function loadLevel(asset) {
             w: object.width, h: object.height,
             message: object.properties[0].value,
           });
-          break;
-
-        case 'stairs':
-          level.triggers.push({
-            type: 'stairs',
-            x: object.x, y: object.y,
-            w: object.width, h: object.height,
-            dest: object.properties[0].value,
-          });
-          break;
-
-        case 'stairpos':
-          level.stairPos.x = object.x;
-          level.stairPos.y = object.y;
           break;
 
         case 'platform': {
@@ -1102,12 +1085,6 @@ class Smiley {
           text = Sprite.makeText(font, trigger.message, new Mat3(),
                                  Mat3.makeTranslate(10, 10));
           break;
-
-        case 'stairs':
-          level = assets[trigger.dest].data;
-          this.x = level.stairPos.x;
-          this.y = level.stairPos.y;
-          break;
         }
         break;
       }
@@ -1201,8 +1178,8 @@ class Bouncies {
     this.objs = [];
     for (let i = 0; i < 100; ++i) {
       this.objs.push({
-        x: rand(assets.testing.data.width),
-        y: rand(assets.testing.data.height),
+        x: rand(assets.factory.data.width),
+        y: rand(assets.factory.data.height),
         dx: rand(-1, 1),
         dy: rand(-1, 1),
         size: rand(8, 48),

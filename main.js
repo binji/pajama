@@ -1528,18 +1528,27 @@ class Toast {
 
 class Clock {
   constructor() {
-    this.time = 0;
+    this.frames = 0;
+
+    this.startHour = 7;
+    const endHour = 5 + 12;
+    this.workdayMinutes = (endHour - this.startHour) * 60;
+    this.workdayFrames = 2 * 60 * 60;  // 2 minutes
+    this.framesPerMinute = this.workdayMinutes / this.workdayFrames;
   }
 
   update() {
-    this.time++;
+    this.frames++;
+    if (this.frames >= this.workdayFrames) {
+      this.frames = 0;
+    }
   }
 
   toString() {
-    let sec = Math.floor(this.time / 1);
+    let totalMinutes = Math.floor(this.frames * this.framesPerMinute);
     let padInt = (num, len, chr) => num.toString().padStart(len, chr);
-    let min = sec % 60;
-    let hour = (Math.floor(sec / 60)) % 24;
+    let min = totalMinutes % 60;
+    let hour = this.startHour + (Math.floor(totalMinutes / 60)) % 24;
     let ampm = 'AM';
     if (hour >= 12 && hour < 24) {
       ampm = 'PM';

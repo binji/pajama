@@ -832,7 +832,7 @@ class Platforms {
     this.batch.reset();
     for (let obj of this.objs) {
       this.batch.pushFrame(lerp(dt, obj.x, obj.lastX),
-                           lerp(dt, obj.y, obj.lastY), 0, TILE_SIZE * 3,
+                           lerp(dt, obj.y, obj.lastY), 10, TILE_SIZE * 3,
                            TILE_SIZE, TILE_SIZE * 3 / TEX_WIDTH,
                            TILE_SIZE / TEX_WIDTH);
     }
@@ -986,7 +986,7 @@ class Smiley {
         }
 
         // Riding on top of the platform
-        let seg = {x0: ox + 0, y0: oy + 0, x1: ox + w, y1 : oy + 0};
+        let seg = {x0: ox + 0, y0: oy + 20, x1: ox + w, y1 : oy + 20};
         if (handleSeg(seg)) {
           let dx = obj.x - obj.lastX;
           let dy = obj.y - obj.lastY;

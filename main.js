@@ -193,40 +193,42 @@ let assets = {
   sprites: {filename: 'sprites.png', type: 'image', data: null},
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
+  factoryTiles: {filename: 'factory_tiles.png', type: 'image', data: null},
 
   testing: {filename: 'testing.json', type: 'level', data: null, depends: ['tiles']},
   tiny: {filename: 'tiny.json', type: 'level', data: null, depends: ['tiles']},
+  factory: {filename: 'factory.json', type: 'level', data: null, depends: ['factoryTiles']},
 
   boom: {filename: 'boom.mp3', type: 'sfx', data: null},
   doots: {filename: 'doots.wav', type: 'music', data: null},
 };
 
-function loadImage(filename) {
+function loadImage(asset) {
   return new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = async () => {
       let imgbmp = await createImageBitmap(image);
       resolve(imgbmp);
     };
-    image.src = filename;
+    image.src = asset.filename;
   });
 }
 
-async function loadJson(filename) {
-  let response = await fetch(filename);
+async function loadJson(asset) {
+  let response = await fetch(asset.filename);
   let json = await response.json();
   return json;
 }
 
-async function loadSfx(filename) {
-  let response = await fetch(filename);
+async function loadSfx(asset) {
+  let response = await fetch(asset.filename);
   let buffer = await response.arrayBuffer();
   let data = await audio.decodeAudioData(buffer);
   return data;
 }
 
-async function loadMusic(filename) {
-  let music = new Audio(filename);
+async function loadMusic(asset) {
+  let music = new Audio(asset.filename);
   let source = audio.createMediaElementSource(music);
   source.connect(audio.destination);
   music.pause();
@@ -235,14 +237,14 @@ async function loadMusic(filename) {
   return source;
 }
 
-async function loadLevel(filename) {
+async function loadLevel(asset) {
+  let filename = asset.filename;
   let response = await fetch(filename);
   let json = await response.json();
-  let texture = makeTexture(assets.tiles);
 
   let level = {
     data: json,
-    sprite: Sprite.makeEmptyBuffer(texture),
+    sprite: null,
     tiles: {},
     collision: {
       width: 0,
@@ -259,8 +261,11 @@ async function loadLevel(filename) {
 
   if (level.data.tilesets.length != 1) { throw 'no'; }
 
-  // preprocess tileset data for ease of lookup later
   let tileset = level.data.tilesets[0];
+  let texture = makeTexture(assets[asset.depends[0]]);
+  level.sprite = Sprite.makeEmptyBuffer(texture);
+
+  // preprocess tileset data for ease of lookup later
   const strideu = (tileset.tilewidth + tileset.spacing) / tileset.imagewidth;
   const stridev = (tileset.tileheight + tileset.spacing) / tileset.imageheight;
   const marginu = tileset.margin / tileset.imagewidth;
@@ -439,7 +444,7 @@ async function loadAssets() {
       };
 
       promises.push((async () => {
-        let image = await cbs[asset.type](asset.filename);
+        let image = await cbs[asset.type](asset);
         asset.data = image;
       })());
     }
@@ -1015,7 +1020,7 @@ async function start() {
 
   await loadAssets();
 
-  level = assets.testing.data;
+  level = assets.factory.data;
 
   const shader = makeTextureShader();
   font = makeFont();

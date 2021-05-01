@@ -67,10 +67,17 @@ class Segment {
 
 class Rect {
   constructor(x, y, w, h) {
-    this.x = x;
-    this.y = y;
-    this.w = w;
-    this.h = h;
+    if (w == undefined && h == undefined) {
+      this.x = 0;
+      this.y = 0;
+      this.w = x;
+      this.h = y;
+    } else {
+      this.x = x;
+      this.y = y;
+      this.w = w;
+      this.h = h;
+    }
   }
 
   static makeCenterRadius(x, y, rad) {
@@ -895,6 +902,7 @@ class Platforms {
     // TODO: handle level changes better
     for (let platform of level.platforms) {
       let obj = {
+        rect: new Rect(48 * 3, 48),
         lastX : 0,
         lastY : 0,
         x : 0,
@@ -934,6 +942,7 @@ class Platforms {
       obj.lastY = obj.y;
       obj.x = lerp(obj.t, p0.x, p1.x);
       obj.y = lerp(obj.t, p0.y, p1.y);
+      obj.rect.setTranslate(obj.x, obj.y);
     }
   }
 
@@ -1079,20 +1088,14 @@ class Smiley {
     let smileRect = Rect.makeCenterRadius(this.x, this.y, rad);
 
     // Platform collision
-    let rect = new Rect(0, 0, 48 * 3, 48);
     for (let obj of platforms.objs) {
-      let ox = obj.x;
-      let oy = obj.y;
-
-      rect.setTranslate(ox, oy);
-
-      if (smileRect.intersects(rect)) {
-        handleSeg(rect.leftSeg());
-        handleSeg(rect.bottomSeg());
-        handleSeg(rect.rightSeg());
+      if (smileRect.intersects(obj.rect)) {
+        handleSeg(obj.rect.leftSeg());
+        handleSeg(obj.rect.bottomSeg());
+        handleSeg(obj.rect.rightSeg());
 
         // Riding on top of the platform
-        if (handleSeg(rect.topSeg().translate(0, 20))) {
+        if (handleSeg(obj.rect.topSeg().translate(0, 20))) {
           let dx = obj.x - obj.lastX;
           let dy = obj.y - obj.lastY;
           px += dx;

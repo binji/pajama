@@ -38,6 +38,7 @@ let font;
 let camMat;
 let ui;
 let score = 0;
+let slowmo = false;
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -1235,8 +1236,13 @@ class Smiley {
     }
 
     // Pickups
+    slowmo = false;
     for (let i = 0; i < pickups.objs.length; ++i) {
       let pickup = pickups.objs[i];
+      if (this.rect.intersects(pickup.slowmoRect)) {
+        slowmo = true;
+      }
+
       if (this.rect.intersects(pickup.rect)) {
         pickup.onCollect(pickup);
         pickups.objs.splice(i, 1);
@@ -1338,6 +1344,7 @@ class Pickup {
     this.onCollect = onCollect;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
+    this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 0.7);
   }
 }
 
@@ -1439,7 +1446,7 @@ class Camera {
       this.y = Math.min(level.height - SCREEN_HEIGHT, smiley.y - pushBox.b);
     }
 
-    this.zoom = keyState.shift ? 2.0 : 1.0;
+    this.zoom = slowmo ? 2.0 : 1.0;
   }
 
   draw(dt) {
@@ -1602,7 +1609,7 @@ async function start() {
     gl.clearColor(0, 0.1, 0.1, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let timeScale = !keyState.shift ? 1 : 0.33;
+    let timeScale = slowmo ? 0.33 : 1;
     updateRemainder += elapsed * timeScale;
     let maxUpdates = 20;
     while (updateRemainder > updateMs && maxUpdates > 0) {

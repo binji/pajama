@@ -37,6 +37,7 @@ let particles;
 let font;
 let camMat;
 let ui;
+let score = 0;
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -1385,6 +1386,7 @@ class Pickups {
           gravity: 0.2,
         });
       }
+      score++;
     }));
   }
 
@@ -1458,6 +1460,7 @@ class Camera {
 class UI {
   constructor() {
     this.toast = new Toast();
+    this.text = new Text(font);
   }
 
   showMessage(message) {
@@ -1473,6 +1476,10 @@ class UI {
   }
 
   draw(shader, dt) {
+    this.text.reset();
+    this.text.add(0, 0, `score: ${score}`, 2, 2);
+    this.text.upload();
+    this.text.draw(shader, dt);
     this.toast.draw(shader, dt);
   }
 }

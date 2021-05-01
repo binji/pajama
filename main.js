@@ -121,6 +121,10 @@ class Segment {
     return (x - this.x0) * (this.y1 - this.y0) -
            (y - this.y0) * (this.x1 - this.x0);
   }
+
+  isTop() {
+    return this.y0 == this.y1 && this.x0 < this.x1;
+  }
 }
 
 class Rect {
@@ -1100,6 +1104,7 @@ class Smiley {
     this.isJumping = false;
     this.isClimbing = false;
     this.gravity = 2 * this.jumpHeight / Math.pow(this.jumpTime, 2);
+    this.framesOffGround = 0;
 
     this.x = level.startPos.x;
     this.y = level.startPos.y;
@@ -1131,7 +1136,8 @@ class Smiley {
   }
 
   jump() {
-    if (!this.isJumping) {
+    const coyote = 5;
+    if (!this.isJumping && this.framesOffGround <= coyote) {
       this.isJumping = true;
       this.isClimbing = false;
       this.dy = this.jumpVel;
@@ -1181,6 +1187,8 @@ class Smiley {
     let py = this.y;
     let rad2 = this.radius * this.radius;
 
+    this.framesOffGround++;
+
     let handleSeg = (seg) => {
       let cross = seg.cross(px, py);
       if (cross < 0) return false;
@@ -1193,6 +1201,9 @@ class Smiley {
         let push = (this.radius - dist) / dist;
         px += (px - ix) * push;
         py += (py - iy) * push;
+        if (seg.isTop()) {
+          this.framesOffGround = 0;
+        }
         return true;
       }
       return false;
@@ -1207,6 +1218,7 @@ class Smiley {
           let dy = obj.y - obj.lastY;
           px += dx;
           py += dy;
+          this.framesOffGround = 0;
         }
       }
     }
@@ -1230,10 +1242,10 @@ class Smiley {
     }
 
     for (let tile of tiles) {
-      let segs = level.getSegs(tile.x, tile.y);
       let gid = level.getCollisionCell(tile.x, tile.y);
       if (LADDER_GIDS.includes(gid) && this.isClimbing) continue;
 
+      let segs = level.getSegs(tile.x, tile.y);
       if (segs) {
         for (let seg of segs) {
           handleSeg(seg);

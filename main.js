@@ -147,8 +147,8 @@ class Rect {
   }
 
   intersects(rect) {
-    return rect.x + rect.w >= this.x || rect.x <= this.x + this.w ||
-           rect.y + rect.h >= this.y || rect.y <= this.x + this.h;
+    return rect.x + rect.w >= this.x && rect.x <= this.x + this.w &&
+           rect.y + rect.h >= this.y && rect.y <= this.y + this.h;
   }
 }
 
@@ -311,6 +311,15 @@ class SpriteBatch {
 //------------------------------------------------------------------------------
 // Level
 
+function getProperty(value, name) {
+  for (let prop of value.properties) {
+    if (prop.name == name) {
+      return prop.value;
+    }
+  }
+  throw 'ouch';
+}
+
 class Level {
   constructor(data, tilesAsset) {
     this.data = data;
@@ -356,6 +365,9 @@ class Level {
     for (let layer of this.data.layers) {
       switch (layer.type) {
         case 'tilelayer':
+          if (getProperty(layer, 'collision')) {
+            this.doCollisionLayer(layer);
+          }
           this.doTileLayer(layer);
           break;
 
@@ -365,8 +377,6 @@ class Level {
       }
     }
     this.sprite.buffer.upload();
-
-    this.doCollisionLayer(this.data.layers[1]);
   }
 
   preprocessTiles() {
@@ -505,7 +515,7 @@ class Level {
           y : object.y,
           w : object.width,
           h : object.height,
-          message : object.properties[0].value,
+          message : getProperty(object, 'message'),
         });
         break;
 
@@ -1037,6 +1047,9 @@ class Smiley {
     this.baseFrame = 10;
     this.frame = 10;
 
+    this.radius = 22;
+    this.rect = Rect.makeCenterRadius(this.x, this.y, this.radius);
+
     this.animTimer = 0;
     this.blinkTimer = 0;
 
@@ -1099,10 +1112,9 @@ class Smiley {
   doCollision() {
     let px = this.x;
     let py = this.y;
-    let rad = 22; // a little less than tile width / 2
-    let rad2 = rad * rad;
+    let rad2 = this.radius * this.radius;
 
-    function handleSeg(seg) {
+    let handleSeg = (seg) => {
       let cross = seg.cross(px, py);
       if (cross < 0) return false;
 
@@ -1111,7 +1123,7 @@ class Smiley {
       if (dist2 < rad2) {
         // push away along vec between object and segment.
         let dist = Math.sqrt(dist2);
-        let push = (rad - dist) / dist;
+        let push = (this.radius - dist) / dist;
         px += (px - ix) * push;
         py += (py - iy) * push;
         return true;
@@ -1119,11 +1131,9 @@ class Smiley {
       return false;
     }
 
-    let smileRect = Rect.makeCenterRadius(this.x, this.y, rad);
-
     // Platform collision
     for (let obj of platforms.objs) {
-      if (smileRect.intersects(obj.rect)) {
+      if (this.rect.intersects(obj.rect)) {
         handleSeg(obj.rect.leftSeg());
         handleSeg(obj.rect.bottomSeg());
         handleSeg(obj.rect.rightSeg());
@@ -1141,10 +1151,10 @@ class Smiley {
     // Tile collision
     let tx = Math.floor(px / TILE_SIZE);
     let ty = Math.floor(py / TILE_SIZE);
-    let t0x = Math.floor((px - rad) / TILE_SIZE);
-    let t0y = Math.floor((py - rad) / TILE_SIZE);
-    let t1x = Math.floor((px + rad) / TILE_SIZE);
-    let t1y = Math.floor((py + rad) / TILE_SIZE);
+    let t0x = Math.floor((px - this.radius) / TILE_SIZE);
+    let t0y = Math.floor((py - this.radius) / TILE_SIZE);
+    let t1x = Math.floor((px + this.radius) / TILE_SIZE);
+    let t1y = Math.floor((py + this.radius) / TILE_SIZE);
     let tiles = [{x: t0x, y: t0y}];
     if (t0x != t1x) {
       tiles.push({x: t1x, y: t0y});
@@ -1190,15 +1200,20 @@ class Smiley {
 
     this.x = px;
     this.y = py;
+    this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
   }
 
   doTriggers() {
+    if (text) {
+      text.destroy();
+      text = null;
+    }
+
     for (let trigger of level.triggers) {
-      if (this.x >= trigger.x && this.x < trigger.x + trigger.w &&
-          this.y >= trigger.y && this.y < trigger.y + trigger.h) {
+      let rect = new Rect(trigger.x, trigger.y, trigger.w, trigger.h);
+      if (this.rect.intersects(rect)) {
         switch (trigger.type) {
         case 'message':
-          text.destroy();
           text = Sprite.makeText(font, trigger.message, new Mat3(),
                                  Mat3.makeTranslate(10, 10));
           break;
@@ -1389,8 +1404,7 @@ async function start() {
 
   const shader = makeTextureShader();
   font = makeFont();
-  text = Sprite.makeText(font, 'find ice; M is for music', new Mat3(),
-                         Mat3.makeTranslate(10, 10));
+  text = null;
   smiley = new Smiley(assets.sprites.data.texture);
   const bouncies = new Bouncies(assets.sprites.data.texture);
 
@@ -1482,7 +1496,9 @@ async function start() {
     particles.draw(shader, camera, dt);
 
     camMat = mat3Id;
-    draw(text, shader);
+    if (text) {
+      draw(text, shader);
+    }
   }
   requestAnimationFrame(tick);
 };

@@ -1537,6 +1537,7 @@ class Clock {
   constructor() {
     this.frames = 0;
 
+    this.weekday = 0;
     this.startHour = 7;
     const endHour = 5 + 12;
     this.workdayMinutes = (endHour - this.startHour) * 60;
@@ -1548,10 +1549,16 @@ class Clock {
     this.frames++;
     if (this.frames >= this.workdayFrames) {
       this.frames = 0;
+      this.weekday++;
+      if (this.weekday >= 5) {
+        this.weekday = 0;
+      }
     }
   }
 
   toString() {
+    const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+
     let totalMinutes = Math.floor(this.frames * this.framesPerMinute);
     let padInt = (num, len, chr) => num.toString().padStart(len, chr);
     let min = totalMinutes % 60;
@@ -1564,7 +1571,7 @@ class Clock {
     if (hour == 0) {
       hour = 12;
     }
-    return `${padInt(hour, 2, ' ')}:${padInt(min, 2, '0')}${ampm}`;
+    return `${dayNames[this.weekday]} ${padInt(hour, 2, ' ')}:${padInt(min, 2, '0')}${ampm}`;
   }
 
   addText(text) {

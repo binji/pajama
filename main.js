@@ -703,10 +703,10 @@ function onKeyDown(event) {
       break;
 
     case 'ArrowLeft':
-      smiley.moveLeft();
+      smiley.moveLeft(true);
       break;
     case 'ArrowRight':
-      smiley.moveRight();
+      smiley.moveRight(true);
       break;
     case ' ':
       smiley.jump();
@@ -723,8 +723,10 @@ function onKeyUp(event) {
 
   switch (event.key) {
     case 'ArrowLeft':
+      smiley.moveLeft(false);
+      break;
     case 'ArrowRight':
-      smiley.stopHoriz();
+      smiley.moveRight(false);
       break;
     case ' ':
       smiley.unjump();
@@ -788,11 +790,13 @@ class Smiley {
 
     this.maxJump = -30;
     this.maxFall = 10;
+
+    this.leftHeld = false;
+    this.rightHeld = false;
   }
 
-  moveLeft() { this.ddx = -this.accel; }
-  moveRight() { this.ddx = +this.accel; }
-  stopHoriz() { this.ddx = 0; }
+  moveLeft(held) { this.leftHeld = held; }
+  moveRight(held) { this.rightHeld = held; }
 
   jump() {
     if (!this.isJumping) {
@@ -909,6 +913,7 @@ class Smiley {
   }
 
   update() {
+    this.ddx = this.accel * ((this.rightHeld|0) - (this.leftHeld|0));
     this.lastX = this.x;
     this.lastY = this.y;
     this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);

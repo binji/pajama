@@ -327,6 +327,7 @@ class Level {
     this.sprite = null;
     this.tiles = {};
     this.collision = {
+      layer: null,
       width : 0,
       height : 0,
       data : [],
@@ -436,7 +437,7 @@ class Level {
   }
 
   getCollisionCell(x, y) {
-    return this.getCell(this.data.layers[1], x, y);
+    return this.getCell(this.collision.layer, x, y);
   }
 
   getSegs(x, y) {
@@ -449,6 +450,7 @@ class Level {
 
   doCollisionLayer(layer) {
     let collision = this.collision;
+    collision.layer = layer;
     collision.width = layer.width;
     collision.height = layer.height;
     collision.data = [];

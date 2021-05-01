@@ -33,6 +33,7 @@ let smiley;
 let level;
 let platforms;
 let pickups;
+let particles;
 let font;
 let text;
 let camMat;
@@ -337,7 +338,7 @@ class Level {
     this.triggers = [];
     this.emitters = [];
     this.platforms = [];
-    this.pickups = [];
+    this.pickupRegions = [];
     this.startPos = {x : 0, y : 0};
     this.width = 0;
     this.height = 0;
@@ -535,6 +536,15 @@ class Level {
 
       case 'particle-emitter':
         this.emitters.push({
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+        });
+        break;
+
+      case 'pickup-spawn':
+        this.pickupRegions.push({
           x : object.x,
           y : object.y,
           w : object.width,
@@ -1200,11 +1210,11 @@ class Smiley {
     }
 
     // Pickups
-    for (let i = 0; i < pickups.length; ++i) {
-      let pickup = pickups[i];
+    for (let i = 0; i < pickups.objs.length; ++i) {
+      let pickup = pickups.objs[i];
       if (this.rect.intersects(pickup.rect)) {
         pickup.onCollect(pickup);
-        pickups.splice(i, 1);
+        pickups.objs.splice(i, 1);
         i--;
       }
     }
@@ -1279,10 +1289,7 @@ class Smiley {
 // Pickups, collectibles, non-player world objects
 
 class Pickup {
-  constructor(texture, x, y, onCollect) {
-    this.sprite = Sprite.makeQuad(
-        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
-        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+  constructor(x, y, onCollect) {
     this.x = x;
     this.y = y;
     this.lastX = this.x;
@@ -1293,11 +1300,50 @@ class Pickup {
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
   }
+}
+
+class Pickups {
+  constructor(texture) {
+    this.sprite = Sprite.makeQuad(
+        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
+        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+
+    this.objs = [];
+  }
+
+  push(pickup) {
+    this.objs.push(pickup);
+  }
+
+  update() {
+    if (this.objs.length == 0) {
+      let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
+      if (x < 40) { x += 1000; }
+      this.objs.push(new Pickup(x, level.startPos.y, (p) => {
+        playSound(assets.boom);
+        for (let i = 0; i < 375; ++i) {
+          let t = rand(2*PI);
+          let v = rand(6);
+          let c = rand(0.6, 1)
+          particles.spawn({
+            x: p.x, y: p.y,
+            dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
+            r: 255*c, g: 205*c, b: 64,
+            life: rand(25, 75),
+            gravity: 0.2,
+          });
+        }
+      }));
+    }
+  }
 
   draw(shader, dt) {
-    this.sprite.objMat.setTranslate(lerp(dt, this.x, this.lastX),
-                                    lerp(dt, this.y, this.lastY));
-    draw(this.sprite, shader);
+    // todo: use spritebatch
+    for (let pickup of this.objs) {
+      this.sprite.objMat.setTranslate(lerp(dt, pickup.x, pickup.lastX),
+                                      lerp(dt, pickup.y, pickup.lastY));
+      draw(this.sprite, shader);
+    }
   }
 }
 
@@ -1372,13 +1418,13 @@ async function start() {
   smiley = new Smiley(assets.sprites.data.texture);
 
   platforms = new Platforms(assets.factoryTiles.data.texture);
-  pickups = [];
+  pickups = new Pickups(assets.sprites.data.texture);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
 
   let camera = new Camera();
-  let particles = new ParticleSystem();
+  particles = new ParticleSystem();
 
   const updateMs = 16.6;
   let lastTimestamp;
@@ -1408,26 +1454,6 @@ async function start() {
 
       smiley.update();
 
-      if (pickups.length == 0) {
-        let x = (smiley.x + randSign()*rand(100, 200)) % 1000;
-        if (x < 40) { x += 1000; }
-        pickups.push(new Pickup(assets.sprites.data.texture, x, level.startPos.y, (p) => {
-          playSound(assets.boom);
-          for (let i = 0; i < 375; ++i) {
-            let t = rand(2*PI);
-            let v = rand(6);
-            let c = rand(0.6, 1)
-            particles.spawn({
-              x: p.x, y: p.y,
-              dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
-              r: 255*c, g: 205*c, b: 64,
-              life: rand(25, 75),
-              gravity: 0.2,
-            });
-          }
-        }));
-      }
-
       for (let i = 0; i < 2; ++i) {
         particles.spawn({
           x: smiley.x + rand(-1,1)*TILE_SIZE/4, y: smiley.y + rand(-1,1)*TILE_SIZE/2,
@@ -1449,6 +1475,7 @@ async function start() {
       camera.update();
       particles.update();
       platforms.update();
+      pickups.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
@@ -1460,9 +1487,7 @@ async function start() {
 
     platforms.draw(shader, dt);
     smiley.draw(shader, dt);
-    for (let pickup of pickups) {
-      pickup.draw(shader, dt);
-    }
+    pickups.draw(shader, dt);
 
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);

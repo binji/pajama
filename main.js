@@ -750,6 +750,7 @@ function onKeyUp(event) {
 }
 
 let level;
+let platforms;
 
 //------------------------------------------------------------------------------
 // Collision detection
@@ -946,6 +947,39 @@ class Smiley {
       return layer.data[y * layer.width + x];
     }
 
+    // Platform collision
+    for (let obj of platforms.objs) {
+      let ox = obj.x;
+      let oy = obj.y;
+      const w = 48 * 3;
+      const h = 48;
+
+      if (this.x + rad >= ox || this.x - rad <= ox + w || this.y + rad >= oy ||
+          this.y - rad < oy + h) {
+        let segs = [
+          {x0: ox + 0, y0: oy + 0, x1: ox + w, y1 : oy + 0}, // top
+          {x0: ox + 0, y0: oy + 0, x1: ox + 0, y1 : oy + h}, // left
+          {x0: ox + 0, y0: oy + h, x1: ox + w, y1 : oy + h}, // bottom
+          {x0: ox + w, y0: oy + 0, x1: ox + w, y1 : oy + h}, // right
+        ];
+
+        for (let seg of segs) {
+          let {dist2, ix, iy} =
+              distToLineSegment2(px, py, seg.x0, seg.y0, seg.x1, seg.y1);
+
+          if (dist2 < rad2) {
+            // push away along vec between object and segment.
+            let dist = Math.sqrt(dist2);
+            let pushx = (rad - dist) * (px - ix) / dist;
+            let pushy = (rad - dist) * (py - iy) / dist;
+            px += pushx;
+            py += pushy;
+          }
+        }
+      }
+    }
+
+    // Tile collision
     for (let dir of dirs) {
       let segs = getCell(tx + dir.x, ty + dir.y);
       if (!segs)
@@ -1139,7 +1173,7 @@ async function start() {
   const bouncies = new Bouncies(spriteTexture);
 
   const factoryTexture = makeTexture(assets.factoryTiles);
-  const platforms = new Platforms(factoryTexture);
+  platforms = new Platforms(factoryTexture);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;

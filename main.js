@@ -877,6 +877,17 @@ const keymap = {
   'ArrowDown' : 'down',
   ' ' : 'jump',
   'Shift' : 'shift',
+
+  // alternate controls
+  'a' : 'left',
+  'd' : 'right',
+  'w' : 'up',
+  's' : 'down',
+  // and again but capitalized because holding shift
+  'A' : 'left',
+  'D' : 'right',
+  'W' : 'up',
+  'S' : 'down',
 };
 
 function onKeyDown(event) {

@@ -726,6 +726,9 @@ function onKeyUp(event) {
     case 'ArrowRight':
       smiley.stopHoriz();
       break;
+    case ' ':
+      smiley.unjump();
+      break;
 
     case 'Shift':
       shiftHeld = false;
@@ -760,6 +763,11 @@ class Smiley {
     this.sprite = Sprite.makeQuad(
         texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
         Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+    this.jumpHeight = 100;
+    this.jumpTime = 30;
+    this.jumpVel = -2 * this.jumpHeight / this.jumpTime;
+    this.isJumping = false;
+
     this.x = level.startPos.x;
     this.y = level.startPos.y;
     this.lastX = this.x;
@@ -767,7 +775,7 @@ class Smiley {
     this.dx = 0;
     this.dy = 0;
     this.ddx = 0;
-    this.ddy = 1;
+    this.ddy = 2 * this.jumpHeight / Math.pow(this.jumpTime, 2);
     this.baseFrame = 10;
     this.frame = 10;
 
@@ -777,6 +785,7 @@ class Smiley {
     this.accel = 0.55;
     this.drag = 0.85;
     this.maxvelX = 3;
+
     this.maxJump = -30;
     this.maxFall = 10;
   }
@@ -786,8 +795,18 @@ class Smiley {
   stopHoriz() { this.ddx = 0; }
 
   jump() {
-    this.ddy = -1;
-    this.dy = -5;
+    if (!this.isJumping) {
+      this.isJumping = true;
+      this.dy = this.jumpVel;
+    }
+  }
+  unjump() {
+    if (this.isJumping) {
+      this.isJumping = false;
+      if (this.dy < 0) {
+        this.dy *= 0.25;
+      }
+    }
   }
 
   doAnim() {
@@ -892,9 +911,8 @@ class Smiley {
   update() {
     this.lastX = this.x;
     this.lastY = this.y;
-    this.ddy = clamp(-1, this.ddy + 0.05, 1);
     this.dx = clamp(-this.maxvelX, (this.dx + this.ddx) * this.drag, this.maxvelX);
-    this.dy = clamp(this.maxJump, (this.dy + this.ddy) * this.drag, this.maxFall);
+    this.dy = clamp(this.maxJump, this.dy + this.ddy, this.maxFall);
     this.x += this.dx;
     this.y += this.dy;
 

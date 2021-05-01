@@ -18,6 +18,14 @@ function makeKeys() {
   };
 }
 
+function makeMouse() {
+  return {
+    left: false,
+    right: false,
+    middle: false,
+  };
+}
+
 // global vars
 let gl;
 let audio;
@@ -26,6 +34,10 @@ let lastKeys = makeKeys();
 let keyState = makeKeys();
 let keyPressed = makeKeys();
 let keyReleased = makeKeys();
+let lastMouse = makeMouse();
+let mouseState = makeMouse();
+let mousePressed = makeMouse();
+let mouseReleased = makeMouse();
 
 let assets;
 
@@ -37,6 +49,7 @@ let particles;
 let font;
 let camMat;
 let ui;
+let tossers;
 let score = 0;
 
 const maxSlow = 0.33;
@@ -614,6 +627,42 @@ class Level {
       }
     }
   }
+
+  getTiles(rect) {
+    let tiles = [];
+    let t0x = Math.floor(rect.x / TILE_SIZE);
+    let t0y = Math.floor(rect.y / TILE_SIZE);
+    let t1x = Math.floor((rect.x + rect.w) / TILE_SIZE);
+    let t1y = Math.floor((rect.y + rect.h) / TILE_SIZE);
+    for (let ty = t0y; ty <= t1y; ++ty) {
+      for (let tx = t0x; tx <= t1x; ++tx) {
+        tiles.push({x: tx, y: ty});
+      }
+    }
+    return tiles;
+  }
+
+  handleObjCollision(thing, isClimbing = false, cb) {
+    for (let tile of this.getTiles(thing.rect)) {
+      let gid = this.getCollisionCell(tile.x, tile.y);
+      if (LADDER_GIDS.includes(gid) && isClimbing)
+        continue;
+
+      let segs = this.getSegs(tile.x, tile.y);
+      if (segs) {
+        for (let seg of segs) {
+          if (checkSegObjCollision(thing, seg)) {
+            this.x += thing.x - thing.lastX;
+            this.y += thing.y - thing.lastY;
+
+            if (cb) {
+              cb(tile, seg);
+            }
+          }
+        }
+      }
+    }
+  }
 };
 
 //------------------------------------------------------------------------------
@@ -1052,7 +1101,20 @@ function onMouseEvent(event) {
   if (ui.cursor) {
     ui.cursor.objMat.setTranslate(x, y);
   }
+
+  mouseState.left = !!(event.buttons & 1);
+  mouseState.right = !!(event.buttons & 2);
+  mouseState.middle = !!(event.buttons & 4);
 }
+
+function updateMouse() {
+  for (let key in mouseState) {
+    mousePressed[key] = mouseState[key] && !lastMouse[key];
+    mouseReleased[key] = !mouseState[key] && lastMouse[key];
+    lastMouse[key] = mouseState[key];
+  }
+}
+
 
 //------------------------------------------------------------------------------
 // Collision detection
@@ -1065,6 +1127,24 @@ function distToLineSegment2(px, py, seg) {
   let ix = seg.x0 + t * (seg.x1 - seg.x0);
   let iy = seg.y0 + t * (seg.y1 - seg.y0);
   return {dist2: dist2(px, py, ix, iy), ix, iy};
+}
+
+function checkSegObjCollision(obj, seg) {
+  let rad2 = obj.radius * obj.radius;
+  let cross = seg.cross(obj.x, obj.y);
+  if (cross < 0) return false;
+
+  let {dist2, ix, iy} = distToLineSegment2(obj.x, obj.y, seg);
+
+  if (dist2 < rad2) {
+    // push away along vec between object and segment.
+    let dist = Math.sqrt(dist2);
+    let push = (obj.radius - dist) / dist;
+    obj.x += (obj.x - ix) * push;
+    obj.y += (obj.y - iy) * push;
+    return true;
+  }
+  return false;
 }
 
 //------------------------------------------------------------------------------
@@ -1132,6 +1212,20 @@ class Platforms {
     }
     this.batch.upload();
     draw(this.batch.sprite, shader);
+  }
+
+  handleObjCollision(thing, cb) {
+    for (let obj of this.objs) {
+      if (thing.rect.intersects(obj.rect)) {
+        // Riding on top of the platform
+        let seg = obj.rect.topSeg().translate(0, 20);
+        if (checkSegObjCollision(thing, seg)) {
+          if (cb) {
+            cb(obj, seg);
+          }
+        }
+      }
+    }
   }
 };
 
@@ -1227,83 +1321,31 @@ class Smiley {
   }
 
   doCollision() {
-    let px = this.x;
-    let py = this.y;
-    let rad2 = this.radius * this.radius;
-
     this.framesOffGround++;
 
-    let handleSeg = (seg) => {
-      let cross = seg.cross(px, py);
-      if (cross < 0) return false;
-
-      let {dist2, ix, iy} = distToLineSegment2(px, py, seg);
-
-      if (dist2 < rad2) {
-        // push away along vec between object and segment.
-        let dist = Math.sqrt(dist2);
-        let push = (this.radius - dist) / dist;
-        px += (px - ix) * push;
-        py += (py - iy) * push;
-        if (seg.isTop()) {
-          this.framesOffGround = 0;
-        }
-        return true;
-      }
-      return false;
-    }
-
     // Platform collision
-    for (let obj of platforms.objs) {
-      if (this.rect.intersects(obj.rect)) {
-        // Riding on top of the platform
-        if (handleSeg(obj.rect.topSeg().translate(0, 20))) {
-          let dx = obj.x - obj.lastX;
-          let dy = obj.y - obj.lastY;
-          px += dx;
-          py += dy;
-          this.framesOffGround = 0;
-        }
+    platforms.handleObjCollision(this, (obj, seg) => {
+      if (seg.isTop()) {
+        this.framesOffGround = 0;
       }
-    }
+    });
 
     // Tile collision
-    let tx = Math.floor(px / TILE_SIZE);
-    let ty = Math.floor(py / TILE_SIZE);
-    let t0x = Math.floor((px - this.radius) / TILE_SIZE);
-    let t0y = Math.floor((py - this.radius) / TILE_SIZE);
-    let t1x = Math.floor((px + this.radius) / TILE_SIZE);
-    let t1y = Math.floor((py + this.radius) / TILE_SIZE);
-    let tiles = [{x: t0x, y: t0y}];
-    if (t0x != t1x) {
-      tiles.push({x: t1x, y: t0y});
-      if (t0y != t1y) {
-        tiles.push({x: t0x, y: t1y});
-        tiles.push({x: t1x, y: t1y});
+    level.handleObjCollision(this, this.isClimbing, (tile, seg) => {
+      if (seg.isTop()) {
+        this.framesOffGround = 0;
       }
-    } else if (t0y != t1y) {
-      tiles.push({x: t0x, y: t1y});
-    }
-
-    for (let tile of tiles) {
-      let gid = level.getCollisionCell(tile.x, tile.y);
-      if (LADDER_GIDS.includes(gid) && this.isClimbing) continue;
-
-      let segs = level.getSegs(tile.x, tile.y);
-      if (segs) {
-        for (let seg of segs) {
-          handleSeg(seg);
-        }
-      }
-    }
+    });
 
     // Ladders
+    let tx = Math.floor(this.x / TILE_SIZE);
+    let ty = Math.floor(this.y / TILE_SIZE);
     if (this.isClimbing || keyState.up|| keyState.down) {
       let gid = level.getCollisionCell(tx, ty);
       this.isClimbing = LADDER_GIDS.includes(gid);
       // Try to align horizontally with the ladder if pressing up/down.
       if (this.isClimbing && (keyState.up || keyState.down)) {
-        this.dx += ((tx + 0.5) * TILE_SIZE - px) * 0.01;
+        this.dx += ((tx + 0.5) * TILE_SIZE - this.x) * 0.01;
       }
     }
 
@@ -1323,8 +1365,6 @@ class Smiley {
     }
     slowScale = slowScale*0.95 + targetSlow*0.05;
 
-    this.x = px;
-    this.y = py;
     this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
   }
 
@@ -1373,6 +1413,11 @@ class Smiley {
       this.ddy = this.climbAccel * ((keyState.down|0) - (keyState.up|0));
     } else {
       this.ddy = this.gravity;
+    }
+
+    if (mousePressed.left) {
+      let frame = randInt(51, 53);
+      tossers.push(new Tosser(frame, this.x, this.y, 0, 0));
     }
 
     this.ddx = this.accel * ((keyState.right|0) - (keyState.left|0));
@@ -1486,6 +1531,74 @@ class Pickups {
                                       lerp(dt, pickup.y, pickup.lastY));
       draw(this.sprite, shader);
     }
+  }
+}
+
+//------------------------------------------------------------------------------
+// Tossers
+
+class Tosser {
+  constructor(frame, x, y, dx, dy) {
+    // share w/ smiley
+    const jumpHeight = 100;
+    const jumpTime = 30;
+    const gravity = 2 * jumpHeight / Math.pow(jumpTime, 2);
+
+    this.maxFall = 10;
+
+    this.x = this.lastX = x;
+    this.y = this.lastY = y;
+    this.dx = dx;
+    this.dy = dy;
+    this.ddy = gravity;
+    this.frame = frame;
+    this.radius = 22;
+
+    this.rect = Rect.makeCenterRadius(this.x, this.y, this.radius);
+  }
+
+  update() {
+    this.lastX = this.x;
+    this.lastY = this.y;
+    this.dy = clamp(-this.maxFall, this.dy + this.ddy, this.maxFall);
+    this.x += this.dx;
+    this.y += this.dy;
+
+    platforms.handleObjCollision(this);
+    level.handleObjCollision(this);
+
+    this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
+  }
+
+  draw(batch, dt) {
+    batch.pushFrame(lerp(dt, this.x, this.lastX) - this.radius,
+                    lerp(dt, this.y, this.lastY) - this.radius, this.frame);
+  }
+}
+
+class Tossers {
+  constructor(texture) {
+    this.batch = new SpriteBatch(texture);
+    this.objs = [];
+  }
+
+  push(tosser) {
+    this.objs.push(tosser);
+  }
+
+  update() {
+    for (let obj of this.objs) {
+      obj.update();
+    }
+  }
+
+  draw(shader, dt) {
+    this.batch.reset();
+    for (let obj of this.objs) {
+      obj.draw(this.batch, dt);
+    }
+    this.batch.upload();
+    draw(this.batch.sprite, shader);
   }
 }
 
@@ -1688,6 +1801,7 @@ async function start() {
 
   platforms = new Platforms(assets.factoryTiles.data.texture);
   pickups = new Pickups(assets.sprites.data.texture);
+  tossers = new Tossers(assets.sprites.data.texture);
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
@@ -1731,6 +1845,7 @@ async function start() {
       }
 
       updateKeys();
+      updateMouse();
 
       smiley.update();
 
@@ -1756,6 +1871,7 @@ async function start() {
       particles.update();
       platforms.update();
       pickups.update();
+      tossers.update();
       ui.update();
     }
 
@@ -1769,7 +1885,7 @@ async function start() {
     platforms.draw(shader, dt);
     smiley.draw(shader, dt);
     pickups.draw(shader, dt);
-
+    tossers.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
     particles.draw(shader, camera, dt);

@@ -38,7 +38,10 @@ let font;
 let camMat;
 let ui;
 let score = 0;
-let slowmo = false;
+
+const maxSlow = 0.33;
+const maxZoom = 2.0;
+let slowScale = 0.0;
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -1249,11 +1252,11 @@ class Smiley {
     }
 
     // Pickups
-    slowmo = false;
+    let targetSlow = 0.0;
     for (let i = 0; i < pickups.objs.length; ++i) {
       let pickup = pickups.objs[i];
       if (this.rect.intersects(pickup.slowmoRect)) {
-        slowmo = true;
+        targetSlow = 1.0;
       }
 
       if (this.rect.intersects(pickup.rect)) {
@@ -1262,6 +1265,7 @@ class Smiley {
         i--;
       }
     }
+    slowScale = slowScale*0.95 + targetSlow*0.05;
 
     this.x = px;
     this.y = py;
@@ -1357,7 +1361,7 @@ class Pickup {
     this.onCollect = onCollect;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
-    this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 0.7);
+    this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 1.5);
   }
 }
 
@@ -1459,7 +1463,7 @@ class Camera {
       this.y = Math.min(level.height - SCREEN_HEIGHT, smiley.y - pushBox.b);
     }
 
-    this.zoom = slowmo ? 2.0 : 1.0;
+    this.zoom = lerp(slowScale, 1.0, maxZoom);
   }
 
   draw(dt) {
@@ -1641,7 +1645,7 @@ async function start() {
     gl.clearColor(clearColor.r, clearColor.g, clearColor.b, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
 
-    let timeScale = slowmo ? 0.33 : 1;
+    let timeScale = lerp(slowScale, 1.0, maxSlow);
     updateRemainder += elapsed * timeScale;
     let maxUpdates = 20;
     while (updateRemainder > updateMs && maxUpdates > 0) {

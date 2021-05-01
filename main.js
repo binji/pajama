@@ -18,6 +18,7 @@ function makeKeys() {
   };
 }
 
+// global vars
 let gl;
 let audio;
 let audioStarted = false;
@@ -25,6 +26,15 @@ let lastKeys = makeKeys();
 let keyState = makeKeys();
 let keyPressed = makeKeys();
 let keyReleased = makeKeys();
+
+let assets;
+
+let smiley;
+let level;
+let platforms;
+let font;
+let text;
+let camMat;
 
 //------------------------------------------------------------------------------
 // Math stuff
@@ -522,7 +532,7 @@ class Level {
 //------------------------------------------------------------------------------
 // Asset loading
 
-let assets = {
+assets = {
   sprites: {filename: 'sprites.png', type: 'image', data: null},
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
@@ -851,8 +861,6 @@ function uploadTex(texture, data) {
   gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
 }
 
-let smiley;
-
 const keymap = {
   'ArrowLeft' : 'left',
   'ArrowRight' : 'right',
@@ -896,9 +904,6 @@ function updateKeys() {
   }
 }
 
-let level;
-let platforms;
-
 //------------------------------------------------------------------------------
 // Collision detection
 // see https://stackoverflow.com/questions/849211/shortest-distance-between-a-point-and-a-line-segment
@@ -911,9 +916,6 @@ function distToLineSegment2(px, py, seg) {
   let iy = seg.y0 + t * (seg.y1 - seg.y0);
   return {dist2: dist2(px, py, ix, iy), ix, iy};
 }
-
-let font;
-let text;
 
 //------------------------------------------------------------------------------
 // Platforms
@@ -1207,7 +1209,7 @@ class Smiley {
   draw(shader, dt) {
     this.sprite.objMat.setTranslate(lerp(dt, this.x, this.lastX),
                                     lerp(dt, this.y, this.lastY));
-    draw(smiley.sprite, shader);
+    draw(this.sprite, shader);
   }
 };
 
@@ -1314,8 +1316,6 @@ class Bouncies {
 
 
 //------------------------------------------------------------------------------
-
-let camMat;
 
 async function start() {
   initGl();

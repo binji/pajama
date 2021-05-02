@@ -1748,9 +1748,16 @@ class Smiley {
 
   doParticles() {
     for (let i = 0; i < 2; ++i) {
+      let c1 = randInt(3);
+      let c2 = rand(0.8, 1);
+      let c;
+      if (c1 == 0) { c = {r: 255*c2, g: 32*c2, b: 32*c2}; }
+      else if (c1 == 1) { c = {r: 32*c2, g: 255*c2, b: 32*c2}; }
+      else { c = {r: 32*c2, g: 32*c2, b: 255*c2}; }
       particles.spawn({
         x: this.x + rand(-1,1)*TILE_SIZE/4, y: this.y + rand(-1,1)*TILE_SIZE/2,
         dx: rand(-0.4, 0.4), dy: rand(-0.4, 0.4),
+        r: c.r, g: c.g, b: c.b,
         life: 30});
     }
   }

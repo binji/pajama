@@ -1366,7 +1366,8 @@ class Smiley {
     for (let i = 0; i < pickups.objs.length; ++i) {
       let pickup = pickups.objs[i];
       if (this.rect.intersects(pickup.slowmoRect)) {
-        targetSlow = 1.0;
+        const dist = Math.max(Math.abs(this.x - pickup.x), Math.abs(this.y - pickup.y));
+        targetSlow = clamp(0, 1 - (dist - pickup.rect.w) / pickup.slowmoRect.w, 1);
       }
 
       if (this.rect.intersects(pickup.rect)) {

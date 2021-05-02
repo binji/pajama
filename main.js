@@ -1764,6 +1764,10 @@ class Pickup {
 
     this.data = PICKUP_DATA[kind];
     this.frame = this.data.frame;
+    if (kind === 'tomato' && rand(1) < 0.05) {
+      // tomato surprise
+      this.frame += 10;
+    }
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
     this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 1.5);
@@ -1789,7 +1793,7 @@ class Pickup {
       });
     }
     this.region.count--;
-    const slot = ui.inventory.slotFor(this.frame);
+    const slot = ui.inventory.slotFor(this.data.frame);
     slot.count++;
   }
 }

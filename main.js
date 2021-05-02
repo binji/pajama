@@ -1486,6 +1486,7 @@ class Pickup {
     this.y = y;
     this.lastX = this.x;
     this.lastY = this.y;
+    this.radius = 22;
 
     this.frame = PICKUP_KIND[kind];
     this.onCollect = onCollect;
@@ -1493,13 +1494,16 @@ class Pickup {
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
     this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 1.5);
   }
+
+  draw(batch, dt) {
+    batch.pushFrame(lerp(dt, this.x, this.lastX) - this.radius,
+                    lerp(dt, this.y, this.lastY) - this.radius, this.frame);
+  }
 }
 
 class Pickups {
   constructor(texture) {
-    this.sprite = Sprite.makeQuad(
-        texture, Mat3.makeScale(TILE_SIZE, TILE_SIZE),
-        Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
+    this.batch = new SpriteBatch(texture);
 
     this.objs = [];
     this.spawnDelay = 200;
@@ -1545,14 +1549,12 @@ class Pickups {
   }
 
   draw(shader, dt) {
-    // todo: use spritebatch
+    this.batch.reset();
     for (let pickup of this.objs) {
-      let texPos = getSpriteTexPos(pickup.frame);
-      this.sprite.texMat.setTranslate(texPos.x, texPos.y);
-      this.sprite.objMat.setTranslate(lerp(dt, pickup.x, pickup.lastX),
-                                      lerp(dt, pickup.y, pickup.lastY));
-      draw(this.sprite, shader);
+      pickup.draw(this.batch, dt);
     }
+    this.batch.upload();
+    draw(this.batch.sprite, shader);
   }
 }
 

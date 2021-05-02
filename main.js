@@ -1991,6 +1991,10 @@ class Tosser {
         playSound(assets[sfx]);
         this.lifeTime = 0;
         counters.increment(this.data.kind);
+
+        if (collector.kind == 'crate') {
+          score.crate++;
+        }
       }
     }
   }
@@ -2257,7 +2261,7 @@ class Day {
   update() {
     if (!this.started) return;
 
-    this.t = this.t + 0.05;
+    this.t = this.t + 0.03;
     let cubic = easeOutCubic(this.t);
     this.x = lerp(cubic, this.p0.x, this.p1.x);
     this.y = lerp(cubic, this.p0.y, this.p1.y);
@@ -2719,10 +2723,11 @@ class EndDayState {
 
     let w = SCREEN_WIDTH;
 
-    this.carrot = this.makeTextObj('0', 1.5, 1.7, w, (w + 12 * 32) * 0.5, 256);
-    this.tomato = this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 320);
-    this.chicken = this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 384);
-    this.soup = this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 448);
+    this.carrot = this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 256);
+    this.tomato = this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 320);
+    this.chicken = this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 384);
+    this.soup = this.makeTextObj('0', 2.3, 2.5, w, (w + 12 * 32) * 0.5, 448);
+    this.crate = this.makeTextObj('0', 2.5, 2.7, w, (w + 12 * 32) * 0.5, 512);
 
     this.objs = [
       this.makeTitleObj(0, 0.3, -512, w * 0.5, 128),
@@ -2742,13 +2747,19 @@ class EndDayState {
       this.makeSpriteObj(PICKUP_DATA.soup.frame, 1.1, 1.3, -512,
                          w * 0.5 + 4 * 32, 464),
 
+      this.makeTextObj('shipped', 1.3, 1.5, -512, (w - 9 * 32) * 0.5, 512),
+      this.makeCrateObj(1.3, 1.5, -512, w * 0.5 + 4 * 32, 512),
+
       this.carrot,
       this.tomato,
       this.chicken,
       this.soup,
+      this.crate,
 
-      this.makeTextObj('PRESS SPACE', 2.5, 2.7, -512, (w - 12 * 32) * 0.5, 600),
+      this.makeTextObj('PRESS SPACE', 3.1, 3.3, -512, (w - 12 * 32) * 0.5, 600),
     ]
+
+    this.finalT = 3.3;
   }
 
   makeTitleObj(startTime, endTime, startX, endX, y) {
@@ -2776,6 +2787,21 @@ class EndDayState {
     return {sprite, startTime, endTime, startX, endX, y};
   }
 
+  makeCrateObj(startTime, endTime, startX, endX, y) {
+    let sprite = Sprite.makeQuad(
+        assets.sprites.data.texture,
+        Mat3.makeScale(TILE_SIZE * 2, TILE_SIZE * 2),
+        Mat3.makeScale(TILE_SIZE * 2 / TEX_WIDTH, TILE_SIZE * 2 / TEX_HEIGHT));
+
+    let texPos = getSpriteTexPos(6);
+    sprite.texMat.setTranslate(texPos.x, texPos.y);
+
+    sprite.objMat.setTranslate(startX, y);
+
+    return {sprite, startTime, endTime, startX, endX, y};
+  }
+
+
   makeTextObj(message, startTime, endTime, startX, endX, y) {
     let text = new Text(font);
     text.set(0, 0, message, 2, 2);
@@ -2796,6 +2822,7 @@ class EndDayState {
     this.updateText(this.tomato, score.tomato.toString());
     this.updateText(this.chicken, score.chicken.toString());
     this.updateText(this.soup, score.soup.toString());
+    this.updateText(this.crate, score.crate.toString());
     this.update();
 
     fader.fadeIn(FADE_TIME, () => {
@@ -2816,9 +2843,9 @@ class EndDayState {
       obj.sprite.objMat.setTranslate(lerp(tscale, obj.startX, obj.endX), obj.y);
     }
 
-    if (this.t < 3 && keyPressed.jump) {
-      this.t = 3;
-    } else if (this.t >= 3 && keyPressed.jump) {
+    if (this.t < this.finalT && keyPressed.jump) {
+      this.t = this.finalT;
+    } else if (this.t >= this.finalT && keyPressed.jump) {
       fader.fadeOut(FADE_TIME, () => {
         state = gameState;
         state.start();

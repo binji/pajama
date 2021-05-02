@@ -362,7 +362,7 @@ class Text {
     this.sprite.buffer.reset();
   }
 
-  add(x, y, str, sx = 1, sy = 1) {
+  add(x, y, str, sx = 1, sy = 1, spacingX = 1) {
     const dx = 16 * sx;
     const dy = 16 * sy;
     const du = 16 / TEX_WIDTH;
@@ -374,7 +374,7 @@ class Text {
         const {u, v} = font.map[chr];
         this.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
       }
-      x += dx;
+      x += dx * spacingX;
     }
   }
 
@@ -1962,8 +1962,12 @@ class Inventory {
 
       this.text.add(x, y, (i + 1).toString());
       // TODO: bold or different color?
-      this.text.add(x + TILE_SIZE - 32, y + TILE_SIZE - 32,
-                    (slot.count).toString(), 2, 2);
+      let count = (slot.count).toString();
+      let textX = x + TILE_SIZE - 32;
+      if (count.length > 1) {
+        textX -= (count.length - 1) * 20;
+      }
+      this.text.add(textX, y + TILE_SIZE - 32, count, 2, 2, 0.6);
       x += dx;
     }
 

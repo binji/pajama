@@ -15,6 +15,7 @@ const PICKUP_DATA = {
   tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36},
   chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220},
   soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220},
+  badge: {kind: 'badge', frame: 54, r: 220, g: 220, b: 220},
 };
 
 function makeKeys() {
@@ -1235,6 +1236,7 @@ function onKeyDown(event) {
     case '2': ui.inventory.selected = 1; break;
     case '3': ui.inventory.selected = 2; break;
     case '4': ui.inventory.selected = 3; break;
+    case '5': ui.inventory.selected = 4; break;
   }
 }
 
@@ -2169,6 +2171,7 @@ class Inventory {
       new InventorySlot(PICKUP_DATA.tomato, 0),
       new InventorySlot(PICKUP_DATA.chicken, 0),
       new InventorySlot(PICKUP_DATA.soup, 0),
+      new InventorySlot(PICKUP_DATA.badge, null),
     ];
 
     this.margin = 4;
@@ -2191,13 +2194,17 @@ class Inventory {
       this.batch.pushFrame(x, y, slot.frame);
 
       this.text.add(x, y, (i + 1).toString());
-      // TODO: bold or different color?
-      let count = (slot.count).toString();
-      let textX = x + TILE_SIZE - 32;
-      if (count.length > 1) {
-        textX -= (count.length - 1) * 20;
+
+      if (slot.count !== null) {
+        // TODO: bold or different color?
+        let count = (slot.count).toString();
+        let textX = x + TILE_SIZE - 32;
+        if (count.length > 1) {
+          textX -= (count.length - 1) * 20;
+        }
+        this.text.add(textX, y + TILE_SIZE - 32, count, 2, 2, 0.6);
       }
-      this.text.add(textX, y + TILE_SIZE - 32, count, 2, 2, 0.6);
+
       x += dx;
     }
 

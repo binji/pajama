@@ -7,6 +7,13 @@ const TILE_SIZE = 48;
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
 const LADDER_GIDS = [21, 31, 32];
 
+const PICKUP_KIND = {
+  // numbers correspond with sprite frame ids
+  carrot: 50,
+  tomato: 51,
+  chicken: 52,
+};
+
 function makeKeys() {
   return {
     up : false,
@@ -1057,6 +1064,10 @@ function onKeyDown(event) {
     case 'm':
       playMusic(assets.doots);
       break;
+
+    case '1': ui.inventory.selected = 0; break;
+    case '2': ui.inventory.selected = 1; break;
+    case '3': ui.inventory.selected = 2; break;
   }
 }
 
@@ -1430,7 +1441,7 @@ class Smiley {
 
     if (mousePressed.left) {
       const force = 8;
-      let frame = randInt(50, 53);
+      let frame = ui.inventory.selectedSlot().frame;
       let {x, y} = ui.cursor.toWorldPos();
       let invDist = force / dist(this.x, this.y, x, y);
       let throwX = (x - this.x) * invDist;
@@ -1469,13 +1480,6 @@ class Smiley {
 //------------------------------------------------------------------------------
 // Pickups, collectibles, non-player world objects
 
-const PICKUP_KIND = {
-  // numbers correspond with sprite frame ids
-  carrot: 50,
-  tomato: 51,
-  chicken: 52,
-};
-
 class Pickup {
   constructor(kind, x, y, onCollect) {
     this.x = x;
@@ -1498,8 +1502,8 @@ class Pickups {
         Mat3.makeScale(TILE_SIZE / TEX_WIDTH, TILE_SIZE / TEX_HEIGHT));
 
     this.objs = [];
-    this.spawnDelay = 300;
-    this.maxSpawned = 5;
+    this.spawnDelay = 200;
+    this.maxSpawned = 8;
     this.spawnTimer = 0;
   }
 
@@ -1872,11 +1876,12 @@ class Inventory {
   constructor() {
     this.batch = new SpriteBatch(assets.sprites.data.texture);
     this.text = new Text(font);
+    this.selected = 0;
 
     this.slots = [
-      new InventorySlot(50, 0),
-      new InventorySlot(51, 0),
-      new InventorySlot(52, 0),
+      new InventorySlot(PICKUP_KIND.carrot, 0),
+      new InventorySlot(PICKUP_KIND.tomato, 0),
+      new InventorySlot(PICKUP_KIND.chicken, 0),
     ];
 
     this.margin = 4;
@@ -1894,7 +1899,7 @@ class Inventory {
     this.text.reset();
     for (let i = 0; i < this.slots.length; ++i) {
       let slot = this.slots[i];
-      const boxFrame = 4;
+      const boxFrame = i == this.selected ? 5 : 4;
       this.batch.pushFrame(x, y, boxFrame);
       this.batch.pushFrame(x, y, slot.frame);
 
@@ -1909,6 +1914,10 @@ class Inventory {
     this.text.upload();
     this.batch.draw(shader, dt);
     this.text.draw(shader, dt);
+  }
+
+  selectedSlot() {
+    return this.slots[this.selected];
   }
 };
 

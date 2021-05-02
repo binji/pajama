@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="5" nextobjectid="29">
+<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="5" nextobjectid="36">
  <editorsettings>
   <export target="factory.json" format="json"/>
  </editorsettings>
@@ -163,28 +163,28 @@
   <object id="14" type="platform" x="1249.33" y="2734.67">
    <polygon points="0,0 0,-209.333 4,-81.3333"/>
   </object>
-  <object id="15" type="pickup-spawn" x="182.667" y="2702.67" width="895.333" height="50">
+  <object id="15" type="pickup-spawn" x="193.334" y="2689.34" width="895.333" height="50">
    <properties>
     <property name="kind" value="tomato"/>
-    <property name="maxSpawned" value="4"/>
+    <property name="maxSpawned" value="5"/>
     <property name="spawnDelay" value="180"/>
    </properties>
   </object>
-  <object id="16" type="pickup-spawn" x="685.333" y="2940.33" width="936" height="50">
+  <object id="16" type="pickup-spawn" x="685.333" y="2927" width="936" height="63.3333">
    <properties>
     <property name="kind" value="carrot"/>
-    <property name="maxSpawned" value="5"/>
-    <property name="spawnDelay" value="120"/>
+    <property name="maxSpawned" value="6"/>
+    <property name="spawnDelay" value="160"/>
    </properties>
   </object>
-  <object id="17" type="pickup-spawn" x="216" y="2449" width="1399.33" height="50">
+  <object id="17" type="pickup-spawn" x="392.545" y="2445" width="1222.78" height="54">
    <properties>
     <property name="kind" value="chicken"/>
-    <property name="maxSpawned" value="4"/>
+    <property name="maxSpawned" value="5"/>
     <property name="spawnDelay" value="200"/>
    </properties>
   </object>
-  <object id="18" type="message" x="2744" y="2506.67" width="30.6667" height="29.3333">
+  <object id="18" type="message" x="2744.36" y="2505.4" width="30.6667" height="29.3333">
    <properties>
     <property name="message" value="Throw stuff here"/>
    </properties>
@@ -194,7 +194,7 @@
     <property name="kind" value="pot"/>
    </properties>
   </object>
-  <object id="22" type="spout" x="2718.67" y="2958.67">
+  <object id="22" type="spout" x="2714.49" y="2951.4">
    <point/>
   </object>
   <object id="23" type="counter" gid="4" x="2832" y="2976" width="48" height="48">
@@ -221,6 +221,53 @@
   <object id="28" type="counter" gid="4" x="96" y="2592" width="48" height="48">
    <properties>
     <property name="kind" value="soup"/>
+   </properties>
+  </object>
+  <object id="29" type="message" x="201.03" y="2505.21" width="30.6667" height="30.6667">
+   <properties>
+    <property name="message" value="Put soup in here"/>
+   </properties>
+  </object>
+  <object id="30" type="pickup-spawn" x="1791.61" y="2893" width="400.78" height="64">
+   <properties>
+    <property name="kind" value="chicken"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="500"/>
+   </properties>
+  </object>
+  <object id="31" type="pickup-spawn" x="1743.61" y="2655.33" width="360.113" height="64">
+   <properties>
+    <property name="kind" value="carrot"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="400"/>
+   </properties>
+  </object>
+  <object id="32" type="pickup-spawn" x="2272.61" y="2750.67" width="360.113" height="64">
+   <properties>
+    <property name="kind" value="tomato"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="440"/>
+   </properties>
+  </object>
+  <object id="33" type="pickup-spawn" x="2218.61" y="2273.33" width="342.113" height="64">
+   <properties>
+    <property name="kind" value="tomato"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="320"/>
+   </properties>
+  </object>
+  <object id="34" type="pickup-spawn" x="1778.61" y="2366.67" width="231.446" height="64">
+   <properties>
+    <property name="kind" value="carrot"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="423"/>
+   </properties>
+  </object>
+  <object id="35" type="pickup-spawn" x="2012.28" y="2508.67" width="400.78" height="64">
+   <properties>
+    <property name="kind" value="chicken"/>
+    <property name="maxSpawned" value="1"/>
+    <property name="spawnDelay" value="360"/>
    </properties>
   </object>
  </objectgroup>
@@ -281,7 +328,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33,0,0,0,0,0,0,
+0,0,0,0,33,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33,0,0,0,0,0,0,
 0,0,44,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,34,0,0,34,0,0,34,0,0,34,0,0,0,34,0,0,34,0,0,34,0,0,34,0,0,0,0,0,34,0,0,34,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

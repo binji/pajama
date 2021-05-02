@@ -1508,6 +1508,17 @@ class Platforms {
       obj.x = lerp(obj.t, p0.x, p1.x);
       obj.y = lerp(obj.t, p0.y, p1.y);
       obj.rect.setTranslate(obj.x, obj.y);
+
+      if (rand(1) < 0.10) {
+        particles.spawn({
+          x: rand(obj.rect.x, obj.rect.x+obj.rect.w),
+          y: rand(obj.rect.y + obj.rect.h/2, obj.rect.y+obj.rect.h),
+          dx: rand(-1, 1), dy: rand(0, 2),
+          r: 240, g: 240, b: 240,
+          life: 30,
+          gravity: 0.1,
+        })
+      }
     }
   }
 

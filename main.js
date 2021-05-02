@@ -55,8 +55,12 @@ let mouseScreenY = 0;
 
 let assets;
 
-let fader;
 let state;
+let titleState;
+let gameState;
+
+let fader;
+
 let shader;
 let colorShader;
 let smiley;
@@ -2488,7 +2492,8 @@ class TitleState {
   update() {
     if (!fader.isFading && keyPressed.jump) {
       fader.fadeOut(FADE_TIME, () => {
-        state = new GameState();
+        state = gameState;
+        state.start();
       });
     }
   }
@@ -2526,7 +2531,9 @@ class GameState {
 
     camera = new Camera();
     particles = new ParticleSystem();
+  }
 
+  start() {
     fader.fadeIn(FADE_TIME, () => {
       ui.day.start(0);
     });
@@ -2609,7 +2616,10 @@ async function start() {
   canvas.onmouseup = onMouseEvent;
 
   fader = new Fader();
-  state = new TitleState();
+
+  titleState = new TitleState();
+  gameState = new GameState();
+  state = titleState;
 
   const updateMs = 16.6;
   let lastTimestamp;

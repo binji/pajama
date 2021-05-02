@@ -2367,18 +2367,24 @@ class Clock {
     if (this.frames >= workdayFrames) {
       this.running = false;
 
-      fader.fadeOut(FADE_TIME, () => {
-        state = endDayState;
-        state.start();
-      });
-
       this.frames = 0;
       this.weekday++;
-      if (this.weekday >= 5) {
-        // TODO end of week
 
+      let endWeek = false;
+      if (this.weekday >= 5) {
         this.weekday = 0;
+        endWeek = true;
       }
+
+      fader.fadeOut(FADE_TIME, () => {
+        state = endDayState;
+        if (endWeek) {
+          state.endWeek();
+        } else {
+          state.endDay();
+        }
+      });
+
     }
   }
 
@@ -2723,6 +2729,7 @@ class EndDayState {
 
     let w = SCREEN_WIDTH;
 
+    this.title = this.makeTitleObj(0, 0.3, -512, w * 0.5, 128);
     this.carrot = this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 256);
     this.tomato = this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 320);
     this.chicken = this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 384);
@@ -2730,7 +2737,7 @@ class EndDayState {
     this.crate = this.makeTextObj('0', 2.5, 2.7, w, (w + 12 * 32) * 0.5, 512);
 
     this.objs = [
-      this.makeTitleObj(0, 0.3, -512, w * 0.5, 128),
+      this.title,
       this.makeTextObj('carrot', 0.5, 0.7, -512, (w - 7 * 32) * 0.5, 256),
       this.makeSpriteObj(PICKUP_DATA.carrot.frame, 0.5, 0.7, -512,
                          w * 0.5 + 4 * 32, 272),
@@ -2815,14 +2822,31 @@ class EndDayState {
     object.text.set(0, 0, message, 2, 2);
   }
 
-  start() {
+  endDay() {
     this.running = false;
     this.t = 0;
+    this.title.sprite.texMat.setTranslate(0, 6 * 64 / TEX_HEIGHT);
     this.updateText(this.carrot, score.carrot.toString());
     this.updateText(this.tomato, score.tomato.toString());
     this.updateText(this.chicken, score.chicken.toString());
     this.updateText(this.soup, score.soup.toString());
     this.updateText(this.crate, score.crate.toString());
+    this.update();
+
+    fader.fadeIn(FADE_TIME, () => {
+      this.running = true;
+    });
+  }
+
+  endWeek() {
+    this.running = false;
+    this.t = 0;
+    this.title.sprite.texMat.setTranslate(0, 7 * 64 / TEX_HEIGHT);
+    this.updateText(this.carrot, weekScores.carrot.toString());
+    this.updateText(this.tomato, weekScores.tomato.toString());
+    this.updateText(this.chicken, weekScores.chicken.toString());
+    this.updateText(this.soup, weekScores.soup.toString());
+    this.updateText(this.crate, weekScores.crate.toString());
     this.update();
 
     fader.fadeIn(FADE_TIME, () => {

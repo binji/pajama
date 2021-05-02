@@ -155,6 +155,16 @@
                          "name":"kind",
                          "type":"string",
                          "value":"tomato"
+                        }, 
+                        {
+                         "name":"maxSpawned",
+                         "type":"string",
+                         "value":"4"
+                        }, 
+                        {
+                         "name":"spawnDelay",
+                         "type":"string",
+                         "value":"180"
                         }],
                  "rotation":0,
                  "type":"pickup-spawn",
@@ -172,6 +182,16 @@
                          "name":"kind",
                          "type":"string",
                          "value":"carrot"
+                        }, 
+                        {
+                         "name":"maxSpawned",
+                         "type":"string",
+                         "value":"5"
+                        }, 
+                        {
+                         "name":"spawnDelay",
+                         "type":"string",
+                         "value":"120"
                         }],
                  "rotation":0,
                  "type":"pickup-spawn",
@@ -189,6 +209,16 @@
                          "name":"kind",
                          "type":"string",
                          "value":"chicken"
+                        }, 
+                        {
+                         "name":"maxSpawned",
+                         "type":"string",
+                         "value":"3"
+                        }, 
+                        {
+                         "name":"spawnDelay",
+                         "type":"string",
+                         "value":"240"
                         }],
                  "rotation":0,
                  "type":"pickup-spawn",

@@ -632,6 +632,8 @@ class Level {
           w : object.width,
           h : object.height,
           kind : getProperty(object, 'kind'),
+          maxSpawned : getProperty(object, 'maxSpawned'),
+          spawnDelay : getProperty(object, 'spawnDelay'),
         });
         break;
 
@@ -1483,12 +1485,13 @@ class Smiley {
 // Pickups, collectibles, non-player world objects
 
 class Pickup {
-  constructor(kind, x, y) {
+  constructor(kind, x, y, region) {
     this.x = x;
     this.y = y;
     this.lastX = this.x;
     this.lastY = this.y;
     this.radius = 22;
+    this.region = region;
 
     this.frame = PICKUP_KIND[kind];
 
@@ -1515,6 +1518,7 @@ class Pickup {
         gravity: 0.2,
       });
     }
+    this.region.count--;
     score++;
     const slot = ui.inventory.slotFor(this.frame);
     slot.count++;
@@ -1526,31 +1530,39 @@ class Pickups {
     this.batch = new SpriteBatch(texture);
 
     this.objs = [];
+
+    this.spawnRegions = [];
+    for (let data of level.pickupRegions) {
+      this.spawnRegions.push({
+        spawnTimer: 0,
+        count: 0,
+        data,
+      })
+    }
     this.spawnDelay = 200;
     this.maxSpawned = 8;
     this.spawnTimer = 0;
   }
 
-  push(pickup) {
-    this.objs.push(pickup);
-  }
-
   update() {
     // Spawning logic
-    if (this.objs.length >= this.maxSpawned) {
-      return;
-    }
+    for (let region of this.spawnRegions) {
+      let data = region.data;
+      if (region.count >= data.maxSpawned) {
+        // don't tick the timer when at capacity
+        continue;
+      }
+      region.spawnTimer++;
+      if (region.spawnTimer < data.spawnDelay) {
+        continue;
+      }
+      region.spawnTimer = 0;
+      region.count++;
 
-    this.spawnTimer--;
-    if (this.spawnTimer >= 0) {
-      return;
+      let x = rand(data.x, data.x+data.w);
+      let y = rand(data.y, data.y+data.h);
+      this.objs.push(new Pickup(data.kind, x, y, region));
     }
-    this.spawnTimer = this.spawnDelay;
-
-    let region = randElem(level.pickupRegions);
-    let x = rand(region.x, region.x+region.w);
-    let y = rand(region.y, region.y+region.h);
-    this.objs.push(new Pickup(region.kind, x, y));
   }
 
   draw(shader, dt) {

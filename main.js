@@ -3,6 +3,7 @@ const SCREEN_HEIGHT = 810;
 const TEX_WIDTH = 512;
 const TEX_HEIGHT = 512;
 const TILE_SIZE = 48;
+const FADE_TIME = 0.75;
 
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
 const LADDER_GIDS = [21, 31, 32, 19, 29];
@@ -54,8 +55,10 @@ let mouseScreenY = 0;
 
 let assets;
 
+let fader;
 let state;
 let shader;
+let colorShader;
 let smiley;
 let level;
 let platforms;
@@ -285,6 +288,11 @@ class VertexBuffer {
 
   push(x, y, u, v) {
     this.data.push(x, y, u, v);
+    this.count++;
+  }
+
+  pushColor(x, y, r, g, b, a) {
+    this.data.push(x, y, r, g, b, a);
     this.count++;
   }
 
@@ -1141,6 +1149,47 @@ function makeFont() {
   return {texture, map};
 }
 
+function makeColorShader() {
+  const vertexShader = compileShader(gl.VERTEX_SHADER,
+     `uniform mat3 uObjMat;
+      uniform mat3 uCamMat;
+      attribute vec2 aPos;
+      attribute vec4 aColor;
+      varying highp vec4 vColor;
+
+      void main(void) {
+        float w = 1440.0, h = 810.0;
+        mat3 proj = mat3(2.0 / w,         0,  0,
+                               0,  -2.0 / h,  0,
+                            -1.0,       1.0,  0);
+
+        vec3 pos = vec3(aPos, 1.0);
+        gl_Position = vec4(proj * uCamMat * uObjMat * pos, 1.0);
+        vColor = aColor;
+      }`);
+  const fragmentShader = compileShader(gl.FRAGMENT_SHADER,
+     `precision highp float;
+      varying vec4 vColor;
+      void main(void) {
+        gl_FragColor = vColor;
+      }`);
+
+  const program = gl.createProgram();
+  gl.attachShader(program, vertexShader);
+  gl.attachShader(program, fragmentShader);
+  gl.linkProgram(program);
+  if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
+    throw new Error(`program link failed: ${gl.getProgramInfoLog(program)}`);
+  }
+
+  const aPos = gl.getAttribLocation(program, 'aPos');
+  const aColor = gl.getAttribLocation(program, 'aColor');
+  const uObjMat = gl.getUniformLocation(program, 'uObjMat');
+  const uCamMat = gl.getUniformLocation(program, 'uCamMat');
+
+  return {program, aPos, aColor, uObjMat, uCamMat};
+}
+
 function makeTextureShader() {
   const vertexShader = compileShader(gl.VERTEX_SHADER,
      `uniform mat3 uObjMat;
@@ -1199,13 +1248,29 @@ function draw(sprite, shader) {
   gl.useProgram(shader.program);
 
   gl.enableVertexAttribArray(shader.aPos);
-  gl.enableVertexAttribArray(shader.aTexCoord);
-  gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
-  gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
-  gl.uniform1i(shader.uSampler, 0);
+
+  if (shader.aTexCoord) {
+    gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 16, 0);
+    gl.enableVertexAttribArray(shader.aTexCoord);
+    gl.vertexAttribPointer(shader.aTexCoord, 2, gl.FLOAT, gl.FALSE, 16, 8);
+  }
+
+  if (shader.aColor) {
+    gl.vertexAttribPointer(shader.aPos, 2, gl.FLOAT, gl.FALSE, 24, 0);
+    gl.enableVertexAttribArray(shader.aColor);
+    gl.vertexAttribPointer(shader.aColor, 4, gl.FLOAT, gl.FALSE, 24, 8);
+  }
+
+  if (shader.uSampler) {
+    gl.uniform1i(shader.uSampler, 0);
+  }
+
   gl.uniformMatrix3fv(shader.uObjMat, false, sprite.objMat.m);
   gl.uniformMatrix3fv(shader.uCamMat, false, camMat.m);
-  gl.uniformMatrix3fv(shader.uTexMat, false, sprite.texMat.m);
+
+  if (shader.uTexMat) {
+    gl.uniformMatrix3fv(shader.uTexMat, false, sprite.texMat.m);
+  }
 
   gl.drawArrays(gl.TRIANGLE_STRIP, sprite.buffer.first,
                 sprite.buffer.count);
@@ -2034,8 +2099,6 @@ class UI {
     this.cursor = new Cursor();
     this.inventory = new Inventory();
     this.day = new Day();
-
-    this.day.start(0);
   }
 
   showMessage(message) {
@@ -2347,6 +2410,69 @@ class Inventory {
 };
 
 //------------------------------------------------------------------------------
+class Fader {
+  constructor() {
+    this.sprite = Sprite.makeEmptyBuffer(null);
+    this.fading = false;
+    this.t = 0;
+    this.dt = 0;
+    this.color = [0, 0, 0, 0];
+    this.cb = null;
+  }
+
+  startFade(secs, start, end, cb) {
+    this.startColor = start;
+    this.endColor = end;
+    this.fading = true;
+    this.cb = cb;
+    this.dt = 1 / (secs * 60);
+  }
+
+  fadeIn(secs, cb) {
+    this.startFade(secs, [0, 0, 0, 1], [0, 0, 0, 0], cb);
+  }
+
+  fadeOut(secs, cb) {
+    this.startFade(secs, [0, 0, 0, 0], [0, 0, 0, 1], cb);
+  }
+
+  update() {
+    if (!this.fading) return;
+
+    this.t += this.dt;
+    if (this.t >= 1) {
+      this.t = 0;
+      this.fading = false;
+      this.cb();
+      return;
+    }
+
+    this.color = [
+      lerp(this.t, this.startColor[0], this.endColor[0]),
+      lerp(this.t, this.startColor[1], this.endColor[1]),
+      lerp(this.t, this.startColor[2], this.endColor[2]),
+      lerp(this.t, this.startColor[3], this.endColor[3]),
+    ];
+  }
+
+  draw(dt) {
+    if (!this.fading) return;
+
+    let [r, g, b, a] = this.color;
+
+    let buffer = this.sprite.buffer;
+    buffer.reset();
+    buffer.pushColor(0, 0, r, g, b, a);
+    buffer.pushColor(0, SCREEN_HEIGHT, r, g, b, a);
+    buffer.pushColor(SCREEN_WIDTH, 0, r, g, b, a);
+    buffer.pushColor(SCREEN_WIDTH, SCREEN_HEIGHT, r, g, b, a);
+    buffer.upload();
+
+    draw(this.sprite, colorShader);
+  }
+};
+
+//------------------------------------------------------------------------------
 // Game states
 
 class TitleState {
@@ -2360,8 +2486,10 @@ class TitleState {
   }
 
   update() {
-    if (keyPressed.jump) {
-      state = new GameState();
+    if (!fader.isFading && keyPressed.jump) {
+      fader.fadeOut(FADE_TIME, () => {
+        state = new GameState();
+      });
     }
   }
 
@@ -2398,6 +2526,10 @@ class GameState {
 
     camera = new Camera();
     particles = new ParticleSystem();
+
+    fader.fadeIn(FADE_TIME, () => {
+      ui.day.start(0);
+    });
   }
 
   update() {
@@ -2467,6 +2599,7 @@ async function start() {
   await loadAssets();
 
   shader = makeTextureShader();
+  colorShader = makeColorShader();
   font = makeFont();
 
   document.onkeydown = onKeyDown;
@@ -2475,6 +2608,7 @@ async function start() {
   canvas.onmousedown = onMouseEvent;
   canvas.onmouseup = onMouseEvent;
 
+  fader = new Fader();
   state = new TitleState();
 
   const updateMs = 16.6;
@@ -2502,10 +2636,12 @@ async function start() {
       updateMouse();
 
       state.update();
+      fader.update();
     }
 
     let dt = 1 - updateRemainder / updateMs;
     state.draw(dt);
+    fader.draw(dt);
   }
   requestAnimationFrame(tick);
 };

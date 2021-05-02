@@ -2831,7 +2831,7 @@ class EndDayState {
     this.updateText(this.chicken, score.chicken.toString());
     this.updateText(this.soup, score.soup.toString());
     this.updateText(this.crate, score.crate.toString());
-    this.update();
+    this.update(true);
 
     fader.fadeIn(FADE_TIME, () => {
       this.running = true;
@@ -2847,15 +2847,22 @@ class EndDayState {
     this.updateText(this.chicken, weekScores.chicken.toString());
     this.updateText(this.soup, weekScores.soup.toString());
     this.updateText(this.crate, weekScores.crate.toString());
-    this.update();
+    this.update(true);
+
+    // eh, just reset the week scores here
+    weekScores.carrot = 0;
+    weekScores.tomato = 0;
+    weekScores.chicken = 0;
+    weekScores.soup = 0;
+    weekScores.crate = 0;
 
     fader.fadeIn(FADE_TIME, () => {
       this.running = true;
     });
   }
 
-  update() {
-    if (!this.running) return;
+  update(force = false) {
+    if (!this.running && !force) return;
 
     this.t += 1/60;
 

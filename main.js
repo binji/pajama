@@ -94,6 +94,9 @@ function randElem(list) {
 function dist2(x0, y0, x1, y1) {
   return (x1 - x0) * (x1 - x0) + (y1 - y0) * (y1 - y0);
 }
+function dist(x0, y0, x1, y1) {
+  return Math.sqrt(dist2(x0, y0, x1, y1));
+}
 
 function gradientLerp(t, colors) {
   let maxIdx = colors.length - 1;
@@ -1428,7 +1431,7 @@ class Smiley {
       const force = 8;
       let frame = randInt(50, 53);
       let {x, y} = ui.cursor.toWorldPos();
-      let invDist = force / Math.sqrt(dist2(this.x, this.y, x, y));
+      let invDist = force / dist(this.x, this.y, x, y);
       let throwX = (x - this.x) * invDist;
       let throwY = (y - this.y) * invDist;
       tossers.push(new Tosser(frame, this.x, this.y, throwX, throwY));
@@ -1568,6 +1571,8 @@ class Tosser {
     this.frame = frame;
     this.radius = 22;
 
+    this.lifeTime = 180;
+
     this.drag = 0.85;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, this.radius);
@@ -1579,6 +1584,7 @@ class Tosser {
     this.dy = clamp(-this.maxFall, this.dy + this.ddy, this.maxFall);
     this.x += this.dx;
     this.y += this.dy;
+    this.lifeTime--;
 
     let hasCollision = false;
     hasCollision |= platforms.handleObjCollision(this);
@@ -1607,8 +1613,13 @@ class Tossers {
   }
 
   update() {
-    for (let obj of this.objs) {
+    for (let i = 0; i < this.objs.length; ++i) {
+      const obj = this.objs[i];
       obj.update();
+      if (obj.lifeTime <= 0) {
+        this.objs.splice(i, 1);
+        i--;
+      }
     }
   }
 
@@ -1939,6 +1950,7 @@ async function start() {
     lastTimestamp = timestamp;
 
     let clearColor = gradientLerp(ui.clock.workdayFraction(), [
+      // todo: light blue -> blue -> orange-red
       {r: 0.2, g: 0.3, b: 1.0},
       {r: 0.3, g: 0.8, b: 1.0},
       {r: 0.4, g: 0.9, b: 1.0},

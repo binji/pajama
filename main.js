@@ -7,11 +7,11 @@ const TILE_SIZE = 48;
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
 const LADDER_GIDS = [21, 31, 32];
 
-const PICKUP_KIND = {
+const PICKUP_DATA = {
   // numbers correspond with sprite frame ids
-  carrot: 50,
-  tomato: 51,
-  chicken: 52,
+  carrot: {frame: 50, r: 255, g: 126, b: 0},
+  tomato: {frame: 51, r: 237, g: 28, b: 36},
+  chicken: {frame: 52, r: 220, g: 220, b: 220},
 };
 
 function makeKeys() {
@@ -680,6 +680,21 @@ class Level {
       }
     }
     return hasCollision;
+  }
+
+  update() {
+    // don't think we have these but hey just in case
+    for (let emitter of level.emitters) {
+      for (let i = 0; i < 5; ++i) {
+        particles.spawn({
+          x: emitter.x + rand(emitter.w),
+          y: emitter.y + rand(emitter.h),
+          dx: rand(0.3, 3), dy: rand(0.3, 3),
+          r: rand(64, 92), g: rand(132, 194), b: rand(202, 255),
+          life: 840,
+        });
+      }
+    }
   }
 };
 
@@ -1428,6 +1443,15 @@ class Smiley {
     this.currentTriggers = newTriggers;
   }
 
+  doParticles() {
+    for (let i = 0; i < 2; ++i) {
+      particles.spawn({
+        x: this.x + rand(-1,1)*TILE_SIZE/4, y: this.y + rand(-1,1)*TILE_SIZE/2,
+        dx: rand(-0.4, 0.4), dy: rand(-0.4, 0.4),
+        life: 30});
+    }
+  }
+
   update() {
     if (keyPressed.jump) {
       this.jump();
@@ -1445,12 +1469,12 @@ class Smiley {
     if (mousePressed.left && slot.count > 0) {
       slot.count--;
       const force = 8;
-      let frame = slot.frame;
       let {x, y} = ui.cursor.toWorldPos();
       let invDist = force / dist(this.x, this.y, x, y);
       let throwX = (x - this.x) * invDist;
       let throwY = (y - this.y) * invDist;
-      tossers.push(new Tosser(frame, this.x, this.y, throwX, throwY));
+      let data = slot.data;
+      tossers.push(new Tosser(data, this.x, this.y, throwX, throwY));
     }
 
     this.ddx = this.accel * ((keyState.right|0) - (keyState.left|0));
@@ -1469,6 +1493,7 @@ class Smiley {
     this.doAnim();
     this.doCollision();
     this.doTriggers();
+    this.doParticles();
 
     let texPos = getSpriteTexPos(this.frame);
     this.sprite.texMat.setTranslate(texPos.x, texPos.y);
@@ -1493,7 +1518,8 @@ class Pickup {
     this.radius = 22;
     this.region = region;
 
-    this.frame = PICKUP_KIND[kind];
+    this.data = PICKUP_DATA[kind];
+    this.frame = this.data.frame;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
     this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 1.5);
@@ -1513,7 +1539,7 @@ class Pickup {
       particles.spawn({
         x: this.x, y: this.y,
         dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
-        r: 255*c, g: 205*c, b: 64,
+        r: c*this.data.r, g: c*this.data.g, b: c*this.data.b,
         life: rand(25, 75),
         gravity: 0.2,
       });
@@ -1579,7 +1605,7 @@ class Pickups {
 // Tossers
 
 class Tosser {
-  constructor(frame, x, y, dx, dy) {
+  constructor(data, x, y, dx, dy) {
     // share w/ smiley
     const jumpHeight = 100;
     const jumpTime = 30;
@@ -1592,7 +1618,8 @@ class Tosser {
     this.dx = dx;
     this.dy = dy;
     this.ddy = gravity;
-    this.frame = frame;
+    this.data = data;
+    this.frame = data.frame;
     this.radius = 22;
 
     this.lifeTime = 180;
@@ -1618,6 +1645,16 @@ class Tosser {
     }
 
     this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
+
+    // particles
+    for (let i = 0; i < 2; ++i) {
+      let c = rand(0.5, 1)
+      particles.spawn({
+        x: this.x + rand(-1,1)*TILE_SIZE/6, y: this.y + rand(-1,1)*TILE_SIZE/6,
+        dx: rand(-0.4, 0.4), dy: rand(-0.4, 0.4),
+        r: c*this.data.r, g: c*this.data.g, b: c*this.data.b,
+        life: 30});
+    }
   }
 
   draw(batch, dt) {
@@ -1885,8 +1922,9 @@ class Cursor {
 
 //------------------------------------------------------------------------------
 class InventorySlot {
-  constructor(frame, count) {
-    this.frame = frame;
+  constructor(data, count) {
+    this.data = data;
+    this.frame = data.frame;
     this.count = count;
   }
 };
@@ -1898,9 +1936,9 @@ class Inventory {
     this.selected = 0;
 
     this.slots = [
-      new InventorySlot(PICKUP_KIND.carrot, 0),
-      new InventorySlot(PICKUP_KIND.tomato, 0),
-      new InventorySlot(PICKUP_KIND.chicken, 0),
+      new InventorySlot(PICKUP_DATA.carrot, 0),
+      new InventorySlot(PICKUP_DATA.tomato, 0),
+      new InventorySlot(PICKUP_DATA.chicken, 0),
     ];
 
     this.margin = 4;
@@ -2013,24 +2051,6 @@ async function start() {
       updateMouse();
 
       smiley.update();
-
-      for (let i = 0; i < 2; ++i) {
-        particles.spawn({
-          x: smiley.x + rand(-1,1)*TILE_SIZE/4, y: smiley.y + rand(-1,1)*TILE_SIZE/2,
-          dx: rand(-0.4, 0.4), dy: rand(-0.4, 0.4),
-          life: 30});
-      }
-      for (let emitter of level.emitters) {
-        for (let i = 0; i < 5; ++i) {
-          particles.spawn({
-            x: emitter.x + rand(emitter.w),
-            y: emitter.y + rand(emitter.h),
-            dx: rand(0.3, 3), dy: rand(0.3, 3),
-            r: rand(64, 92), g: rand(132, 194), b: rand(202, 255),
-            life: 840,
-          });
-        }
-      }
 
       camera.update();
       particles.update();

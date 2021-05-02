@@ -14,6 +14,7 @@ const PICKUP_DATA = {
   carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0},
   tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36},
   chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220},
+  soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220},
 };
 
 function makeKeys() {
@@ -1234,6 +1235,7 @@ function onKeyDown(event) {
     case '1': ui.inventory.selected = 0; break;
     case '2': ui.inventory.selected = 1; break;
     case '3': ui.inventory.selected = 2; break;
+    case '4': ui.inventory.selected = 3; break;
   }
 }
 
@@ -1706,6 +1708,8 @@ class Pickups {
 
     this.objs = [];
 
+    this.soupSpawnRegion = {spawnTimer: 0, count: 0, data: null};
+
     this.spawnRegions = [];
     for (let data of level.pickupRegions) {
       this.spawnRegions.push({
@@ -1879,6 +1883,29 @@ class Counters {
         obj.count++;
       }
     }
+
+    this.tryMake();
+  }
+
+  tryMake() {
+    const required = 2;
+    for (let obj of this.objs) {
+      if (obj.count < required) {
+        return;
+      }
+    }
+
+    // OK, we have enough resources
+    for (let obj of this.objs) {
+      obj.count -= required;
+    }
+
+    // TODO: more collectors and spouts?
+    let spout = level.spouts[0];
+
+    // Make a can of soup
+    pickups.objs.push(
+        new Pickup('soup', spout.x, spout.y, pickups.soupSpawnRegion));
   }
 
   draw(shader, dt) {
@@ -2143,6 +2170,7 @@ class Inventory {
       new InventorySlot(PICKUP_DATA.carrot, 0),
       new InventorySlot(PICKUP_DATA.tomato, 0),
       new InventorySlot(PICKUP_DATA.chicken, 0),
+      new InventorySlot(PICKUP_DATA.soup, 0),
     ];
 
     this.margin = 4;

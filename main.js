@@ -1439,9 +1439,11 @@ class Smiley {
       this.ddy = this.gravity;
     }
 
-    if (mousePressed.left) {
+    const slot = ui.inventory.selectedSlot();
+    if (mousePressed.left && slot.count > 0) {
+      slot.count--;
       const force = 8;
-      let frame = ui.inventory.selectedSlot().frame;
+      let frame = slot.frame;
       let {x, y} = ui.cursor.toWorldPos();
       let invDist = force / dist(this.x, this.y, x, y);
       let throwX = (x - this.x) * invDist;

@@ -5,7 +5,7 @@ const TEX_HEIGHT = 512;
 const TILE_SIZE = 48;
 
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
-const LADDER_GIDS = [21, 31, 32];
+const LADDER_GIDS = [21, 31, 32, 19, 29];
 const DOWNRIGHT_GIDS = [35, 55];
 const UPRIGHT_GIDS = [36, 56];
 

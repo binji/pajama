@@ -2183,7 +2183,10 @@ class Clock {
     const endHour = 5 + 12;
     this.workdayMinutes = (endHour - this.startHour) * 60;
     this.workdayFrames = 2 * 60 * 60;  // 2 minutes
-    this.framesPerMinute = this.workdayMinutes / this.workdayFrames;
+    this.minutesPerFrame = this.workdayMinutes / this.workdayFrames;
+
+    this.framesPerHour =
+        Math.floor(this.workdayFrames / this.workdayMinutes * 60);
   }
 
   start() {
@@ -2194,6 +2197,11 @@ class Clock {
     if (!this.running) return;
 
     this.frames++;
+    // One hour left
+    if (this.frames + this.framesPerHour == this.workdayFrames) {
+      ui.day.start(5);
+    }
+
     if (this.frames >= this.workdayFrames) {
       // TODO end of day
       this.running = false;
@@ -2213,7 +2221,7 @@ class Clock {
   toString() {
     const dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-    let totalMinutes = Math.floor(this.frames * this.framesPerMinute);
+    let totalMinutes = Math.floor(this.frames * this.minutesPerFrame);
     let padInt = (num, len, chr) => num.toString().padStart(len, chr);
     let min = totalMinutes % 60;
     let hour = this.startHour + (Math.floor(totalMinutes / 60)) % 24;

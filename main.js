@@ -11,9 +11,9 @@ const UPRIGHT_GIDS = [36, 56];
 
 const PICKUP_DATA = {
   // numbers correspond with sprite frame ids
-  carrot: {frame: 50, r: 255, g: 126, b: 0},
-  tomato: {frame: 51, r: 237, g: 28, b: 36},
-  chicken: {frame: 52, r: 220, g: 220, b: 220},
+  carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0},
+  tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36},
+  chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220},
 };
 
 function makeKeys() {
@@ -60,6 +60,7 @@ let camera;
 let camMat;
 let ui;
 let tossers;
+let counters;
 let score = 0;
 
 const maxSlow = 0.33;
@@ -431,6 +432,9 @@ class Level {
     this.emitters = [];
     this.platforms = [];
     this.pickupRegions = [];
+    this.collectors = [];
+    this.counters = [];
+    this.spouts = [];
     this.startPos = {x : 0, y : 0};
     this.width = 0;
     this.height = 0;
@@ -723,6 +727,32 @@ class Level {
           kind : getProperty(object, 'kind'),
           maxSpawned : getProperty(object, 'maxSpawned'),
           spawnDelay : getProperty(object, 'spawnDelay'),
+        });
+        break;
+
+      case 'collector':
+        this.collectors.push({
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+        });
+        break;
+
+      case 'counter':
+        this.counters.push({
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+          kind : getProperty(object, 'kind')
+        });
+        break;
+
+      case 'spout':
+        this.spouts.push({
+          x : object.x,
+          y : object.y,
         });
         break;
 
@@ -1733,6 +1763,8 @@ class Tosser {
       this.dx *= this.drag;
     }
 
+    this.doCollectors();
+
     this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
 
     // particles
@@ -1749,6 +1781,16 @@ class Tosser {
   draw(batch, dt) {
     batch.pushFrame(lerp(dt, this.x, this.lastX) - this.radius,
                     lerp(dt, this.y, this.lastY) - this.radius, this.frame);
+  }
+
+  doCollectors() {
+    for (let collector of level.collectors) {
+      let rect = new Rect(collector.x, collector.y, collector.w, collector.h);
+      if (this.rect.intersects(rect)) {
+        this.lifeTime = 0;
+        counters.increment(this.data.kind);
+      }
+    }
   }
 }
 
@@ -1782,6 +1824,49 @@ class Tossers {
     draw(this.batch.sprite, shader);
   }
 }
+
+//------------------------------------------------------------------------------
+// Counters (in-game counters on collectors)
+
+class Counters {
+  constructor() {
+    this.text = new Text(font);
+    this.objs = [];
+
+    for (let data of level.counters) {
+      this.objs.push({
+        x : data.x,
+        y : data.y,
+        kind : data.kind,
+        count : 0,
+      })
+    }
+  }
+
+  increment(kind) {
+    for (let obj of this.objs) {
+      if (obj.kind == kind) {
+        obj.count++;
+      }
+    }
+  }
+
+  draw(shader, dt) {
+    this.text.reset();
+    for (let obj of this.objs) {
+      // TODO: bold or different color?
+      let count = obj.count.toString();
+      let textX = obj.x + TILE_SIZE - 24;
+      if (count.length > 1) {
+        textX -= (count.length - 1) * 20;
+      }
+      this.text.add(textX, obj.y - 24, count, 2, 2, 0.6);
+    }
+
+    this.text.upload();
+    this.text.draw(shader, dt);
+  }
+};
 
 //------------------------------------------------------------------------------
 // Camera
@@ -2097,6 +2182,7 @@ async function start() {
   platforms = new Platforms(assets.factoryTiles.data.texture);
   pickups = new Pickups(assets.sprites.data.texture);
   tossers = new Tossers(assets.sprites.data.texture);
+  counters = new Counters();
 
   document.onkeydown = onKeyDown;
   document.onkeyup = onKeyUp;
@@ -2164,6 +2250,7 @@ async function start() {
     smiley.draw(shader, dt);
     pickups.draw(shader, dt);
     tossers.draw(shader, dt);
+    counters.draw(shader, dt);
 
     camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
     particles.draw(shader, camera, dt);

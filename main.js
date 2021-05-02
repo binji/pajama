@@ -6,6 +6,8 @@ const TILE_SIZE = 48;
 
 const NOCOLLIDE_LADDER_GIDS = [21, 31];
 const LADDER_GIDS = [21, 31, 32];
+const DOWNRIGHT_GIDS = [35, 55];
+const UPRIGHT_GIDS = [36, 56];
 
 const PICKUP_DATA = {
   // numbers correspond with sprite frame ids
@@ -147,7 +149,7 @@ class Segment {
   }
 
   isTop() {
-    return this.y0 == this.y1 && this.x0 < this.x1;
+    return this.x0 < this.x1;
   }
 }
 
@@ -178,6 +180,14 @@ class Rect {
     this.x = x;
     this.y = y;
     return this;
+  }
+
+  downRightSeg() {
+    return new Segment(this.x, this.y, this.x + this.w, this.y + this.h);
+  }
+
+  upRightSeg() {
+    return new Segment(this.x, this.y + this.h, this.x + this.w, this.y);
   }
 
   topSeg() { return new Segment(this.x, this.y, this.x + this.w, this.y); }
@@ -550,33 +560,112 @@ class Level {
         let px = x * ts;
         let py = y * ts;
 
-        let left = this.getSegs(x - 1, y);
-        let top = this.getSegs(x, y - 1);
-
         let rect = new Rect(px, py, ts, ts);
-        let boxSegs = [
-          rect.topSeg(), rect.leftSeg(), rect.bottomSeg(), rect.rightSeg()
-        ];
+        let boxSegs = {
+          downRight : null,
+          upRight : null,
+          top : null,
+          bottom : null,
+          left : null,
+          right : null
+        };
 
-        if (left != null) {
-          // extend top and bottom segments
-          left[0].x1 = boxSegs[0].x1;
-          left[2].x0 = boxSegs[2].x0;
-          boxSegs[0] = left[0];
-          boxSegs[2] = left[2];
-        }
+        if (DOWNRIGHT_GIDS.includes(gid)) {
+          // Shaped like: |\
+          //              |_\
+          boxSegs.downRight = rect.downRightSeg();
+          boxSegs.bottom = rect.bottomSeg();
+          boxSegs.left = rect.leftSeg();
 
-        if (top != null) {
-          // extend right and left segments
-          top[1].y0 = boxSegs[1].y0;
-          top[3].y1 = boxSegs[3].y1;
-          boxSegs[1] = top[1];
-          boxSegs[3] = top[3];
+          let upLeftSegs = this.getSegs(x - 1, y - 1);
+          let topSegs = this.getSegs(x, y - 1);
+          let leftSegs = this.getSegs(x - 1, y);
+
+          if (leftSegs != null) {
+            // extend bottom segment
+            leftSegs.bottom.x0 = boxSegs.bottom.x0;
+            boxSegs.bottom = leftSegs.bottom;
+          }
+
+          if (topSegs != null && topSegs.left != null) {
+            // extend left segment
+            topSegs.left.y0 = boxSegs.left.y0;
+            boxSegs.left = topSegs.left;
+          }
+
+          if (upLeftSegs != null && upLeftSegs.downRight != null) {
+            // extend downright segment
+            upLeftSegs.downRight.x1 = boxSegs.downRight.x1;
+            upLeftSegs.downRight.y1 = boxSegs.downRight.y1;
+            boxSegs.downRight = upLeftSegs.downRight;
+          }
+        } else if (UPRIGHT_GIDS.includes(gid)) {
+          // Shaped like:  /|
+          //              /_|
+          boxSegs.upRight = rect.upRightSeg();
+          boxSegs.bottom = rect.bottomSeg();
+          boxSegs.right = rect.rightSeg();
+
+          let upRightSegs = this.getSegs(x + 1, y - 1);
+          let topSegs = this.getSegs(x, y - 1);
+          let leftSegs = this.getSegs(x - 1, y);
+
+          if (leftSegs != null) {
+            // extend bottom segment
+            leftSegs.bottom.x0 = boxSegs.bottom.x0;
+            boxSegs.bottom = leftSegs.bottom;
+          }
+
+          if (topSegs != null && topSegs.right != null) {
+            // extend right segment
+            topSegs.right.y1 = boxSegs.right.y1;
+            boxSegs.right = topSegs.right;
+          }
+
+          if (upRightSegs != null && upRightSegs.downRight != null) {
+            // extend downRight segment
+            upRightSegs.downRight.x0 = boxSegs.downRight.x0;
+            upRightSegs.downRight.y0 = boxSegs.downRight.y0;
+            boxSegs.downRight = upRightSegs.downRight;
+          }
+        } else {
+          // Rectangular
+          boxSegs.top = rect.topSeg();
+          boxSegs.bottom = rect.bottomSeg();
+          boxSegs.left = rect.leftSeg();
+          boxSegs.right = rect.rightSeg();
+
+          let leftSegs = this.getSegs(x - 1, y);
+          let topSegs = this.getSegs(x, y - 1);
+
+          if (leftSegs != null) {
+            // extend top and bottom segments
+            if (leftSegs.top != null) {
+              leftSegs.top.x1 = boxSegs.top.x1;
+              boxSegs.top = leftSegs.top;
+            }
+
+            leftSegs.bottom.x0 = boxSegs.bottom.x0;
+            boxSegs.bottom = leftSegs.bottom;
+          }
+
+          if (topSegs != null) {
+            // extend right and left segments
+            if (topSegs.left != null) {
+              topSegs.left.y0 = boxSegs.left.y0;
+              boxSegs.left = topSegs.left;
+            }
+
+            if (topSegs.right != null) {
+              topSegs.right.y1 = boxSegs.right.y1;
+              boxSegs.right = topSegs.right;
+            }
+          }
         }
 
         // make sure segments aren't 0 length
-        for (let seg of boxSegs) {
-          if (seg.x0 == seg.x1 && seg.y0 == seg.y1) {
+        for (let seg of Object.values(boxSegs)) {
+          if (seg && seg.x0 == seg.x1 && seg.y0 == seg.y1) {
             console.log('no');
             throw 'no';
           }
@@ -666,8 +755,8 @@ class Level {
 
       let segs = this.getSegs(tile.x, tile.y);
       if (segs) {
-        for (let seg of segs) {
-          if (checkSegObjCollision(thing, seg)) {
+        for (let seg of Object.values(segs)) {
+          if (seg && checkSegObjCollision(thing, seg)) {
             this.x += thing.x - thing.lastX;
             this.y += thing.y - thing.lastY;
 

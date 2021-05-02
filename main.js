@@ -795,6 +795,16 @@ class Level {
         });
         break;
 
+      case 'badge':
+        this.triggers.push({
+          type : 'badge',
+          x : object.x,
+          y : object.y,
+          w : object.width,
+          h : object.height,
+        });
+        break;
+
       default:
         throw 'what';
       }
@@ -1585,6 +1595,10 @@ class Smiley {
         case 'message':
           ui.showMessage(trigger.message);
           break;
+
+        case 'badge':
+          ui.clock.start();
+          break;
         }
       }
     }
@@ -2161,6 +2175,7 @@ class Toast {
 
 class Clock {
   constructor() {
+    this.running = false;
     this.frames = 0;
 
     this.weekday = 0;
@@ -2171,14 +2186,25 @@ class Clock {
     this.framesPerMinute = this.workdayMinutes / this.workdayFrames;
   }
 
+  start() {
+    this.running = true;
+  }
+
   update() {
+    if (!this.running) return;
+
     this.frames++;
     if (this.frames >= this.workdayFrames) {
+      // TODO end of day
+      this.running = false;
+
       this.frames = 0;
       this.weekday++;
       ui.day.start(this.weekday);
 
       if (this.weekday >= 5) {
+        // TODO end of week
+
         this.weekday = 0;
       }
     }

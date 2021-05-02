@@ -76,6 +76,15 @@ let ui;
 let tossers;
 let counters;
 
+let score = {
+  carrot: 0,
+  tomato: 0,
+  chicken: 0,
+  soup: 0,
+  crate: 0,
+};
+
+
 const maxSlow = 0.33;
 const maxZoom = 2.0;
 let slowScale = 0.0;
@@ -1656,6 +1665,7 @@ class Smiley {
       if (this.rect.intersects(pickup.rect)) {
         pickup.onCollect();
         pickups.objs.splice(i, 1);
+        score[pickup.data.kind]++;
         i--;
       }
     }
@@ -2306,7 +2316,11 @@ class Clock {
       ui.day.start(5);
     }
 
-    if (this.frames >= this.workdayFrames) {
+    // for testing end of day
+    let endDayHack = true;
+    let workdayFrames = endDayHack ? 500 : this.workdayFrames;
+
+    if (this.frames >= workdayFrames) {
       this.running = false;
 
       fader.fadeOut(FADE_TIME, () => {
@@ -2648,6 +2662,11 @@ class EndDayState {
 
     let w = SCREEN_WIDTH;
 
+    this.carrot = this.makeTextObj('0', 1.5, 1.7, w, (w + 12 * 32) * 0.5, 256);
+    this.tomato = this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 320);
+    this.chicken = this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 384);
+    this.soup = this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 448);
+
     this.objs = [
       this.makeTitleObj(0, 0.3, -512, w * 0.5, 128),
       this.makeTextObj('carrot', 0.5, 0.7, -512, (w - 7 * 32) * 0.5, 256),
@@ -2666,17 +2685,10 @@ class EndDayState {
       this.makeSpriteObj(PICKUP_DATA.soup.frame, 1.1, 1.3, -512,
                          w * 0.5 + 4 * 32, 464),
 
-      // carrots
-      this.makeTextObj('0', 1.5, 1.7, w, (w + 12 * 32) * 0.5, 256),
-
-      // tomato
-      this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 320),
-
-      // chicken
-      this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 384),
-
-      // soup
-      this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 448),
+      this.carrot,
+      this.tomato,
+      this.chicken,
+      this.soup,
 
       this.makeTextObj('PRESS SPACE', 2.5, 2.7, -512, (w - 12 * 32) * 0.5, 600),
     ]
@@ -2713,10 +2725,19 @@ class EndDayState {
 
     text.sprite.objMat.setTranslate(startX, y);
 
-    return {sprite: text.sprite, message, startTime, endTime, startX, endX, y};
+    return {text, sprite: text.sprite, message, startTime, endTime, startX, endX, y};
+  }
+
+  updateText(object, message) {
+    object.text.set(0, 0, message, 2, 2);
   }
 
   start() {
+    this.updateText(this.carrot, score.carrot.toString());
+    this.updateText(this.tomato, score.tomato.toString());
+    this.updateText(this.chicken, score.chicken.toString());
+    this.updateText(this.soup, score.soup.toString());
+
     fader.fadeIn(FADE_TIME, () => {
       this.running = true;
     });

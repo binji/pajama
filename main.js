@@ -15,7 +15,7 @@ const PICKUP_DATA = {
   carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0, sounds: ['carrot1', 'carrot2']},
   tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36, sounds: ['tomato1', 'tomato2']},
   chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220, sounds: ['chicken1', 'chicken2']},
-  soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220, sounds: []},
+  soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220, sounds: ['soup1', 'soup2', 'soup3']},
   badge: {kind: 'badge', frame: 54, r: 220, g: 220, b: 220, sounds: []},
 };
 
@@ -903,6 +903,12 @@ assets = {
   tomato2: {filename: 'sounds/tomato2.ogg', type: 'sfx', data: null},
   chicken1: {filename: 'sounds/chicken1.ogg', type: 'sfx', data: null},
   chicken2: {filename: 'sounds/chicken2.ogg', type: 'sfx', data: null},
+  soup1: {filename: 'sounds/soup1.ogg', type: 'sfx', data: null},
+  soup2: {filename: 'sounds/soup2.ogg', type: 'sfx', data: null},
+  soup3: {filename: 'sounds/soup3.ogg', type: 'sfx', data: null},
+  crate1: {filename: 'sounds/crate1.ogg', type: 'sfx', data: null},
+  crate2: {filename: 'sounds/crate2.ogg', type: 'sfx', data: null},
+  pot1: {filename: 'sounds/pot1.ogg', type: 'sfx', data: null},
 };
 
 function loadImage(asset) {
@@ -1004,7 +1010,7 @@ function maybeResumeAudio() {
 
 let isMuted = true;
 function playSound(asset) {
-  if (isMuted) { return; }
+  if (isMuted || !asset) { return; }
   let node = audio.createBufferSource();
   node.buffer = asset.data;
   node.connect(audio.destination);
@@ -1788,10 +1794,7 @@ class Pickup {
   }
 
   onCollect() {
-    let sfx = assets[randElem(this.data.sounds)];
-    if (sfx) {
-      playSound(sfx);
-    }
+    playSound(assets[randElem(this.data.sounds)]);
     for (let i = 0; i < 375; ++i) {
       let t = rand(2*PI);
       let v = rand(6);
@@ -1928,15 +1931,20 @@ class Tosser {
   doCollectors() {
     for (let collector of level.collectors) {
       let matches;
+      let sfx;
       if (collector.kind === 'crate') {
         matches = this.data.kind === 'soup';
+        sfx = randElem(['crate1', 'crate2']);
       } else if (collector.kind === 'pot') {
         matches = this.data.kind !== 'soup';
+        sfx = randElem(['pot1']);
       } else {
         throw 'halp;';
       }
       let rect = new Rect(collector.x, collector.y, collector.w, collector.h);
+
       if (matches && this.rect.intersects(rect)) {
+        playSound(assets[sfx]);
         this.lifeTime = 0;
         counters.increment(this.data.kind);
       }
@@ -2023,6 +2031,7 @@ class Counters {
     let spout = level.spouts[0];
 
     // Make a can of soup
+    playSound(assets[randElem(PICKUP_DATA.soup.sounds)]);
     pickups.objs.push(
         new Pickup('soup', spout.x + rand(-10, 10), spout.y + rand(-10, 10), pickups.soupSpawnRegion));
   }

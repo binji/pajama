@@ -1585,6 +1585,7 @@ class Smiley {
     this.ddy = this.gravity;
     this.baseFrame = 10;
     this.frame = 10;
+    this.soupMode = false;
 
     this.currentTriggers = [];
   }
@@ -1634,6 +1635,10 @@ class Smiley {
         }
       }
     }
+
+    if (this.soupMode) {
+      this.frame = PICKUP_DATA.soup.frame;
+    }
   }
 
   doCollision() {
@@ -1682,6 +1687,23 @@ class Smiley {
       }
     }
     slowScale = slowScale*0.95 + targetSlow*0.05;
+
+    // If you fall into the soup pot
+    for (let collector of level.collectors) {
+      if (collector.kind === 'pot') {
+        let rect = new Rect(collector.x, collector.y, collector.w, collector.h);
+
+        if (this.rect.intersects(rect)) {
+          let spout = level.spouts[0];
+
+          // Make me into a can of soup
+          playSound(assets[randElem(PICKUP_DATA.soup.sounds)]);
+          this.x = spout.x;
+          this.y = spout.y;
+          this.soupMode = true;
+        }
+      }
+    }
 
     this.rect.setTranslate(this.x - this.radius, this.y - this.radius);
   }

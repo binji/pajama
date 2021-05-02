@@ -113,6 +113,10 @@ function dist(x0, y0, x1, y1) {
   return Math.sqrt(dist2(x0, y0, x1, y1));
 }
 
+function easeOutCubic(x) {
+  return 1 - Math.pow(1 - x, 3);
+}
+
 function gradientLerp(t, colors) {
   let maxIdx = colors.length - 1;
   let lo = Math.floor(t * maxIdx);
@@ -857,6 +861,7 @@ class Level {
 
 assets = {
   title: {filename: 'title.png', type: 'image', data: null},
+  days: {filename: 'days.png', type: 'image', data: null},
   sprites: {filename: 'sprites.png', type: 'image', data: null},
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
@@ -2014,6 +2019,9 @@ class UI {
     this.clock = new Clock();
     this.cursor = new Cursor();
     this.inventory = new Inventory();
+    this.day = new Day();
+
+    this.day.start(0);
   }
 
   showMessage(message) {
@@ -2031,6 +2039,7 @@ class UI {
 
     this.toast.update();
     this.clock.update();
+    this.day.update();
   }
 
   draw(shader, dt) {
@@ -2041,8 +2050,75 @@ class UI {
     this.toast.draw(shader, dt);
     this.cursor.draw(shader, dt);
     this.inventory.draw(shader, dt);
+    this.day.draw(shader, dt);
   }
 }
+
+class Day {
+  constructor() {
+    this.width = 256;
+    this.height = 64;
+    this.sprite = Sprite.makeQuad(
+        assets.days.data.texture,
+        Mat3.makeScale(this.width * 2, this.height * 2),
+        Mat3.makeScale(this.width / TEX_WIDTH, this.height / TEX_HEIGHT));
+    this.started = false;
+    this.p0 = null;
+    this.p1 = null;
+
+    let left = -this.width;
+    let middle = SCREEN_WIDTH * 0.5;
+    let right = SCREEN_WIDTH + this.width;
+    let y = SCREEN_HEIGHT * 0.5;
+
+    this.points = [
+      {x: left, y},
+      {x: middle, y},
+      {x: middle, y},
+      {x: right, y},
+    ];
+  }
+
+  start(day) {
+    this.sprite.texMat.setTranslate(0, day * 64 / TEX_HEIGHT);
+    this.started = true;
+    this.setIndex(0);
+    this.t = 0;
+  }
+
+  update() {
+    if (!this.started) return;
+
+    this.t = this.t + 0.05;
+    let cubic = easeOutCubic(this.t);
+    this.x = lerp(cubic, this.p0.x, this.p1.x);
+    this.y = lerp(cubic, this.p0.y, this.p1.y);
+    this.sprite.objMat.setTranslate(this.x, this.y);
+
+    if (this.t >= 1) {
+      this.t -= 1;
+      this.setIndex(this.index + 1);
+    }
+  }
+
+  setIndex(index) {
+    if (index == this.points.length - 1) {
+      this.started = false;
+      return;
+    }
+
+    this.index = index;
+    this.p0 = this.points[this.index];
+    this.p1 = this.points[this.index + 1];
+  }
+
+  draw(shader, dt) {
+    if (!this.started) return;
+
+    draw(this.sprite, shader);
+  }
+}
+
 
 class Toast {
   constructor() {
@@ -2100,6 +2176,8 @@ class Clock {
     if (this.frames >= this.workdayFrames) {
       this.frames = 0;
       this.weekday++;
+      ui.day.start(this.weekday);
+
       if (this.weekday >= 5) {
         this.weekday = 0;
       }

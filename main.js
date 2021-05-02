@@ -585,19 +585,27 @@ class Level {
           let topSegs = this.getSegs(x, y - 1);
           let leftSegs = this.getSegs(x - 1, y);
 
-          if (leftSegs != null) {
-            // extend bottom segment
-            leftSegs.bottom.x0 = boxSegs.bottom.x0;
-            boxSegs.bottom = leftSegs.bottom;
+          if (leftSegs) {
+            if (leftSegs.bottom && boxSegs.bottom) {
+              // extend bottom segment
+              leftSegs.bottom.x0 = boxSegs.bottom.x0;
+              boxSegs.bottom = leftSegs.bottom;
+            }
+
+            // Remove shared wall
+            if (leftSegs.right) {
+              leftSegs.right = null;
+              boxSegs.left = null;
+            }
           }
 
-          if (topSegs != null && topSegs.left != null) {
+          if (topSegs && topSegs.left && boxSegs.left) {
             // extend left segment
             topSegs.left.y0 = boxSegs.left.y0;
             boxSegs.left = topSegs.left;
           }
 
-          if (upLeftSegs != null && upLeftSegs.downRight != null) {
+          if (upLeftSegs && upLeftSegs.downRight && boxSegs.downRight) {
             // extend downright segment
             upLeftSegs.downRight.x1 = boxSegs.downRight.x1;
             upLeftSegs.downRight.y1 = boxSegs.downRight.y1;
@@ -614,19 +622,27 @@ class Level {
           let topSegs = this.getSegs(x, y - 1);
           let leftSegs = this.getSegs(x - 1, y);
 
-          if (leftSegs != null) {
-            // extend bottom segment
-            leftSegs.bottom.x0 = boxSegs.bottom.x0;
-            boxSegs.bottom = leftSegs.bottom;
+          if (leftSegs) {
+            if (leftSegs.bottom && boxSegs.bottom) {
+              // extend bottom segment
+              leftSegs.bottom.x0 = boxSegs.bottom.x0;
+              boxSegs.bottom = leftSegs.bottom;
+            }
+
+            // Remove shared wall
+            if (leftSegs.right) {
+              leftSegs.right = null;
+              boxSegs.left = null;
+            }
           }
 
-          if (topSegs != null && topSegs.right != null) {
+          if (topSegs && topSegs.right && boxSegs.right) {
             // extend right segment
             topSegs.right.y1 = boxSegs.right.y1;
             boxSegs.right = topSegs.right;
           }
 
-          if (upRightSegs != null && upRightSegs.downRight != null) {
+          if (upRightSegs && upRightSegs.downRight && boxSegs.downRight) {
             // extend downRight segment
             upRightSegs.downRight.x0 = boxSegs.downRight.x0;
             upRightSegs.downRight.y0 = boxSegs.downRight.y0;
@@ -642,27 +658,41 @@ class Level {
           let leftSegs = this.getSegs(x - 1, y);
           let topSegs = this.getSegs(x, y - 1);
 
-          if (leftSegs != null) {
+          if (leftSegs) {
             // extend top and bottom segments
-            if (leftSegs.top != null) {
+            if (leftSegs.top && boxSegs.top) {
               leftSegs.top.x1 = boxSegs.top.x1;
               boxSegs.top = leftSegs.top;
             }
 
-            leftSegs.bottom.x0 = boxSegs.bottom.x0;
-            boxSegs.bottom = leftSegs.bottom;
+            if (leftSegs.bottom && boxSegs.bottom) {
+              leftSegs.bottom.x0 = boxSegs.bottom.x0;
+              boxSegs.bottom = leftSegs.bottom;
+            }
+
+            // Remove shared wall
+            if (leftSegs.right) {
+              leftSegs.right = null;
+              boxSegs.left = null;
+            }
           }
 
-          if (topSegs != null) {
+          if (topSegs) {
             // extend right and left segments
-            if (topSegs.left != null) {
+            if (topSegs.left && boxSegs.left) {
               topSegs.left.y0 = boxSegs.left.y0;
               boxSegs.left = topSegs.left;
             }
 
-            if (topSegs.right != null) {
+            if (topSegs.right && boxSegs.right) {
               topSegs.right.y1 = boxSegs.right.y1;
               boxSegs.right = topSegs.right;
+            }
+
+            // Remove shared wall
+            if (topSegs.bottom) {
+              topSegs.bottom = null;
+              boxSegs.top = null;
             }
           }
         }
@@ -2224,6 +2254,23 @@ async function start() {
       if (maxUpdates <= 0) {
         // don't run in fast-forward for the forseeable future
         updateRemainder = 0;
+      }
+
+      // Debug stuff
+      if (mousePressed.right) {
+        let {x, y} = ui.cursor.toWorldPos();
+        let tx = Math.floor(x / TILE_SIZE);
+        let ty = Math.floor(y / TILE_SIZE);
+        let segs = level.getSegs(tx, ty);
+        let msg = `pos: ${tx}, ${ty}\n`;
+        if (segs) {
+          for (let [name, seg] of Object.entries(segs)) {
+            if (seg) {
+              msg += `    ${name}: x0:${seg.x0} y0:${seg.y0} x1:${seg.x1} y1:${seg.y1}\n`;
+            }
+          }
+        }
+        console.log(msg);
       }
 
       updateKeys();

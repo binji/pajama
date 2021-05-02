@@ -2385,7 +2385,7 @@ class Clock {
     }
 
     // for testing end of day
-    let endDayHack = true;
+    let endDayHack = false;
     let workdayFrames = endDayHack ? 500 : this.workdayFrames;
 
     if (this.frames >= workdayFrames) {

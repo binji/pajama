@@ -787,6 +787,7 @@ class Level {
           y : object.y,
           w : object.width,
           h : object.height,
+          kind : getProperty(object, 'kind')
         });
         break;
 
@@ -1910,8 +1911,16 @@ class Tosser {
 
   doCollectors() {
     for (let collector of level.collectors) {
+      let matches;
+      if (collector.kind === 'crate') {
+        matches = this.data.kind === 'soup';
+      } else if (collector.kind === 'pot') {
+        matches = this.data.kind !== 'soup';
+      } else {
+        throw 'halp;';
+      }
       let rect = new Rect(collector.x, collector.y, collector.w, collector.h);
-      if (this.rect.intersects(rect)) {
+      if (matches && this.rect.intersects(rect)) {
         this.lifeTime = 0;
         counters.increment(this.data.kind);
       }
@@ -1979,8 +1988,10 @@ class Counters {
   }
 
   tryMake() {
+
     const required = 2;
     for (let obj of this.objs) {
+      if (obj.kind === 'soup') continue;
       if (obj.count < required) {
         return;
       }
@@ -1988,6 +1999,7 @@ class Counters {
 
     // OK, we have enough resources
     for (let obj of this.objs) {
+      if (obj.kind === 'soup') continue;
       obj.count -= required;
     }
 
@@ -1996,7 +2008,7 @@ class Counters {
 
     // Make a can of soup
     pickups.objs.push(
-        new Pickup('soup', spout.x, spout.y, pickups.soupSpawnRegion));
+        new Pickup('soup', spout.x + rand(-10, 10), spout.y + rand(-10, 10), pickups.soupSpawnRegion));
   }
 
   draw(shader, dt) {

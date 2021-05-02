@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="5" nextobjectid="27">
+<map version="1.5" tiledversion="1.6.0" orientation="orthogonal" renderorder="right-down" width="64" height="64" tilewidth="48" tileheight="48" infinite="0" nextlayerid="5" nextobjectid="29">
  <editorsettings>
   <export target="factory.json" format="json"/>
  </editorsettings>
@@ -189,7 +189,11 @@
     <property name="message" value="Throw stuff here"/>
    </properties>
   </object>
-  <object id="21" type="collector" x="2878.67" y="2812" width="93.3333" height="33.3333"/>
+  <object id="21" type="collector" x="2878.67" y="2812" width="93.3333" height="33.3333">
+   <properties>
+    <property name="kind" value="pot"/>
+   </properties>
+  </object>
   <object id="22" type="spout" x="2718.67" y="2958.67">
    <point/>
   </object>
@@ -209,6 +213,16 @@
    </properties>
   </object>
   <object id="26" type="badge" x="289.333" y="2861.33" width="45.3333" height="178.667"/>
+  <object id="27" type="collector" x="46.6667" y="2456" width="98.6666" height="90">
+   <properties>
+    <property name="kind" value="crate"/>
+   </properties>
+  </object>
+  <object id="28" type="counter" gid="4" x="96" y="2592" width="48" height="48">
+   <properties>
+    <property name="kind" value="soup"/>
+   </properties>
+  </object>
  </objectgroup>
  <layer id="4" name="FG" width="64" height="64">
   <properties>
@@ -268,7 +282,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,33,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+0,0,44,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,34,0,0,34,0,0,34,0,0,34,0,0,0,34,0,0,34,0,0,34,0,0,34,0,0,0,0,0,34,0,0,34,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

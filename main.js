@@ -12,11 +12,11 @@ const UPRIGHT_GIDS = [36, 56];
 
 const PICKUP_DATA = {
   // numbers correspond with sprite frame ids
-  carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0},
-  tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36},
-  chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220},
-  soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220},
-  badge: {kind: 'badge', frame: 54, r: 220, g: 220, b: 220},
+  carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0, sounds: ['carrot1', 'carrot2']},
+  tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36, sounds: []},
+  chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220, sounds: []},
+  soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220, sounds: []},
+  badge: {kind: 'badge', frame: 54, r: 220, g: 220, b: 220, sounds: []},
 };
 
 function makeKeys() {
@@ -894,6 +894,10 @@ assets = {
 
   boom: {filename: 'boom.mp3', type: 'sfx', data: null},
   doots: {filename: 'doots.wav', type: 'music', data: null},
+
+  // sfx
+  carrot1: {filename: 'sounds/carrot1.ogg', type: 'sfx', data: null},
+  carrot2: {filename: 'sounds/carrot2.ogg', type: 'sfx', data: null},
 };
 
 function loadImage(asset) {
@@ -1779,7 +1783,10 @@ class Pickup {
   }
 
   onCollect() {
-    playSound(assets.boom);
+    let sfx = assets[randElem(this.data.sounds)];
+    if (sfx) {
+      playSound(sfx);
+    }
     for (let i = 0; i < 375; ++i) {
       let t = rand(2*PI);
       let v = rand(6);

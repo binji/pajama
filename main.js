@@ -58,6 +58,7 @@ let assets;
 let state;
 let titleState;
 let gameState;
+let endDayState;
 
 let fader;
 
@@ -2293,13 +2294,15 @@ class Clock {
     }
 
     if (this.frames >= this.workdayFrames) {
-      // TODO end of day
       this.running = false;
+
+      fader.fadeOut(FADE_TIME, () => {
+        state = endDayState;
+        state.start();
+      });
 
       this.frames = 0;
       this.weekday++;
-      ui.day.start(this.weekday);
-
       if (this.weekday >= 5) {
         // TODO end of week
 
@@ -2512,6 +2515,9 @@ class TitleState {
     this.text = new Text(font);
   }
 
+  start() {
+  }
+
   update() {
     if (!fader.isFading && keyPressed.jump) {
       fader.fadeOut(FADE_TIME, () => {
@@ -2558,7 +2564,7 @@ class GameState {
 
   start() {
     fader.fadeIn(FADE_TIME, () => {
-      ui.day.start(0);
+      ui.day.start(ui.clock.weekday);
     });
   }
 
@@ -2622,6 +2628,129 @@ class GameState {
   }
 }
 
+class EndDayState {
+  constructor() {
+    this.running = false;
+    this.t = 0;
+
+    let w = SCREEN_WIDTH;
+
+    this.objs = [
+      this.makeTitleObj(0, 0.3, -512, w * 0.5, 128),
+      this.makeTextObj('carrot', 0.5, 0.7, -512, (w - 7 * 32) * 0.5, 256),
+      this.makeSpriteObj(PICKUP_DATA.carrot.frame, 0.5, 0.7, -512,
+                         w * 0.5 + 4 * 32, 272),
+
+      this.makeTextObj('tomato', 0.7, 0.9, -512, (w - 7 * 32) * 0.5, 320),
+      this.makeSpriteObj(PICKUP_DATA.tomato.frame, 0.7, 0.9, -512,
+                         w * 0.5 + 4 * 32, 336),
+
+      this.makeTextObj('chicken', 0.9, 1.1, -512, (w - 9 * 32) * 0.5, 384),
+      this.makeSpriteObj(PICKUP_DATA.chicken.frame, 0.9, 1.1, -512,
+                         w * 0.5 + 4 * 32, 400),
+
+      this.makeTextObj('soup', 1.1, 1.3, -512, (w - 4 * 32) * 0.5, 448),
+      this.makeSpriteObj(PICKUP_DATA.soup.frame, 1.1, 1.3, -512,
+                         w * 0.5 + 4 * 32, 464),
+
+      // carrots
+      this.makeTextObj('0', 1.5, 1.7, w, (w + 12 * 32) * 0.5, 256),
+
+      // tomato
+      this.makeTextObj('0', 1.7, 1.9, w, (w + 12 * 32) * 0.5, 320),
+
+      // chicken
+      this.makeTextObj('0', 1.9, 2.1, w, (w + 12 * 32) * 0.5, 384),
+
+      // soup
+      this.makeTextObj('0', 2.1, 2.3, w, (w + 12 * 32) * 0.5, 448),
+
+      this.makeTextObj('PRESS SPACE', 2.5, 2.7, -512, (w - 12 * 32) * 0.5, 600),
+    ]
+  }
+
+  makeTitleObj(startTime, endTime, startX, endX, y) {
+    // End of Day
+    let sprite = Sprite.makeQuad(
+        assets.days.data.texture,
+        Mat3.makeScale(512, 128),
+        Mat3.makeScale(256 / TEX_WIDTH, 64 / TEX_HEIGHT));
+    sprite.texMat.setTranslate(0, 6 * 64 / TEX_HEIGHT);
+
+    sprite.objMat.setTranslate(startX, y);
+
+    return {sprite, startTime, endTime, startX, endX, y};
+  }
+
+  makeSpriteObj(frame, startTime, endTime, startX, endX, y) {
+    let sprite = Sprite.makeQuad(assets.sprites.data.texture,
+                                 Mat3.makeTileObj(), Mat3.makeTileTex());
+
+    let texPos = getSpriteTexPos(frame);
+    sprite.texMat.setTranslate(texPos.x, texPos.y);
+
+    sprite.objMat.setTranslate(startX, y);
+
+    return {sprite, startTime, endTime, startX, endX, y};
+  }
+
+  makeTextObj(message, startTime, endTime, startX, endX, y) {
+    let text = new Text(font);
+    text.set(0, 0, message, 2, 2);
+
+    text.sprite.objMat.setTranslate(startX, y);
+
+    return {sprite: text.sprite, message, startTime, endTime, startX, endX, y};
+  }
+
+  start() {
+    fader.fadeIn(FADE_TIME, () => {
+      this.running = true;
+    });
+  }
+
+  update() {
+    if (!this.running) return;
+
+    this.t += 1/60;
+
+    for (let obj of this.objs) {
+      if (this.t >= obj.startTime)  {
+        let tscale = (this.t - obj.startTime) / (obj.endTime - obj.startTime);
+        tscale = Math.min(tscale, 1);
+        let cubic = easeOutCubic(tscale);
+
+        obj.sprite.objMat.setTranslate(lerp(tscale, obj.startX, obj.endX),
+                                       obj.y);
+      }
+    }
+
+    if (this.t < 3 && keyPressed.jump) {
+      this.t = 3;
+    } else if (this.t >= 3 && keyPressed.jump) {
+      fader.fadeOut(FADE_TIME, () => {
+        state = gameState;
+        state.start();
+      });
+    }
+  }
+
+  draw() {
+    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    camMat = mat3Id;
+
+    if (!this.running) return;
+
+    for (let obj of this.objs) {
+      draw(obj.sprite, shader);
+    }
+  }
+}
+
+//------------------------------------------------------------------------------
+
 async function start() {
   initGl();
   initAudio();
@@ -2642,7 +2771,10 @@ async function start() {
 
   titleState = new TitleState();
   gameState = new GameState();
+  endDayState = new EndDayState();
+
   state = titleState;
+  state.start();
 
   const updateMs = 16.6;
   let lastTimestamp;

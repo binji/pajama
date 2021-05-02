@@ -1382,7 +1382,7 @@ class Smiley {
       }
 
       if (this.rect.intersects(pickup.rect)) {
-        pickup.onCollect(pickup);
+        pickup.onCollect();
         pickups.objs.splice(i, 1);
         i--;
       }
@@ -1481,7 +1481,7 @@ class Smiley {
 // Pickups, collectibles, non-player world objects
 
 class Pickup {
-  constructor(kind, x, y, onCollect) {
+  constructor(kind, x, y) {
     this.x = x;
     this.y = y;
     this.lastX = this.x;
@@ -1489,7 +1489,6 @@ class Pickup {
     this.radius = 22;
 
     this.frame = PICKUP_KIND[kind];
-    this.onCollect = onCollect;
 
     this.rect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE/2 - 4);
     this.slowmoRect = Rect.makeCenterRadius(this.x, this.y, TILE_SIZE * 1.5);
@@ -1498,6 +1497,25 @@ class Pickup {
   draw(batch, dt) {
     batch.pushFrame(lerp(dt, this.x, this.lastX) - this.radius,
                     lerp(dt, this.y, this.lastY) - this.radius, this.frame);
+  }
+
+  onCollect() {
+    playSound(assets.boom);
+    for (let i = 0; i < 375; ++i) {
+      let t = rand(2*PI);
+      let v = rand(6);
+      let c = rand(0.6, 1)
+      particles.spawn({
+        x: this.x, y: this.y,
+        dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
+        r: 255*c, g: 205*c, b: 64,
+        life: rand(25, 75),
+        gravity: 0.2,
+      });
+    }
+    score++;
+    const slot = ui.inventory.slotFor(this.frame);
+    slot.count++;
   }
 }
 
@@ -1530,22 +1548,7 @@ class Pickups {
     let region = randElem(level.pickupRegions);
     let x = rand(region.x, region.x+region.w);
     let y = rand(region.y, region.y+region.h);
-    this.objs.push(new Pickup(region.kind, x, y, (p) => {
-      playSound(assets.boom);
-      for (let i = 0; i < 375; ++i) {
-        let t = rand(2*PI);
-        let v = rand(6);
-        let c = rand(0.6, 1)
-        particles.spawn({
-          x: p.x, y: p.y,
-          dx: v * Math.cos(t), dy: v * Math.sin(t) - 2,
-          r: 255*c, g: 205*c, b: 64,
-          life: rand(25, 75),
-          gravity: 0.2,
-        });
-      }
-      score++;
-    }));
+    this.objs.push(new Pickup(region.kind, x, y));
   }
 
   draw(shader, dt) {
@@ -1920,6 +1923,14 @@ class Inventory {
 
   selectedSlot() {
     return this.slots[this.selected];
+  }
+  slotFor(frame) {
+    for (let slot of this.slots) {
+      if (slot.frame == frame) {
+        return slot;
+      }
+    }
+    throw 'heck';
   }
 };
 

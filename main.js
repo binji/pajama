@@ -49,9 +49,12 @@ let lastMouse = makeMouse();
 let mouseState = makeMouse();
 let mousePressed = makeMouse();
 let mouseReleased = makeMouse();
+let mouseScreenX = 0;
+let mouseScreenY = 0;
 
 let assets;
 
+let state;
 let shader;
 let smiley;
 let level;
@@ -853,6 +856,7 @@ class Level {
 // Asset loading
 
 assets = {
+  title: {filename: 'title.png', type: 'image', data: null},
   sprites: {filename: 'sprites.png', type: 'image', data: null},
   tiles: {filename: 'tiles.png', type: 'image', data: null},
   font: {filename: 'font.png', type: 'image', data: null},
@@ -1288,10 +1292,8 @@ function convertEventMouseLocation(event) {
 
 function onMouseEvent(event) {
   let [x, y] = convertEventMouseLocation(event);
-  if (ui.cursor) {
-    ui.cursor.setPos(x, y);
-  }
-
+  mouseScreenX = x;
+  mouseScreenY = y;
   mouseState.left = !!(event.buttons & 1);
   mouseState.right = !!(event.buttons & 2);
   mouseState.middle = !!(event.buttons & 4);
@@ -2023,6 +2025,10 @@ class UI {
   }
 
   update() {
+    if (ui.cursor) {
+      ui.cursor.setPos(mouseScreenX, mouseScreenY);
+    }
+
     this.toast.update();
     this.clock.update();
   }
@@ -2231,6 +2237,41 @@ class Inventory {
 //------------------------------------------------------------------------------
 // Game states
 
+class TitleState {
+  constructor() {
+    this.scale = 3;
+    this.sprite = Sprite.makeQuad(
+        assets.title.data.texture, Mat3.makeScale(SCREEN_WIDTH, SCREEN_HEIGHT),
+        Mat3.makeScale(SCREEN_WIDTH / (this.scale * TEX_WIDTH),
+                       SCREEN_HEIGHT / (this.scale * TEX_HEIGHT)));
+    this.text = new Text(font);
+  }
+
+  update() {
+    if (keyPressed.jump) {
+      state = new GameState();
+    }
+  }
+
+  draw(dt) {
+    gl.clearColor(0.1, 0.1, 0.1, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    let message = 'Press SPACE';
+    this.text.reset();
+    this.text.add((SCREEN_WIDTH - message.length * 48) * 0.5,
+                  SCREEN_HEIGHT - 100, message, 3, 3);
+    this.text.upload();
+
+    camMat = mat3Id;
+    this.text.draw(shader, dt);
+    this.sprite.objMat.setTranslate(SCREEN_WIDTH * 0.5, SCREEN_HEIGHT * 0.5);
+
+    draw(this.sprite, shader);
+
+  }
+};
+
 class GameState {
   constructor() {
     level = assets.factory.data;
@@ -2244,6 +2285,7 @@ class GameState {
     counters = new Counters();
 
     camera = new Camera();
+    particles = new ParticleSystem();
   }
 
   update() {
@@ -2321,9 +2363,7 @@ async function start() {
   canvas.onmousedown = onMouseEvent;
   canvas.onmouseup = onMouseEvent;
 
-  state = new GameState();
-
-  particles = new ParticleSystem();
+  state = new TitleState();
 
   const updateMs = 16.6;
   let lastTimestamp;

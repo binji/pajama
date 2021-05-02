@@ -563,6 +563,11 @@ class Level {
         const y = Math.floor(i / layer.width) * dy;
         const {u, v} = this.tiles[gid];
         this.sprite.buffer.pushTriStripQuad(x, y, u, v, dx, dy, du, dv);
+
+        // lights
+        if (gid == 34) {
+          this.emitters.push({x: x+TILE_SIZE/4, y: y+TILE_SIZE/4, w: TILE_SIZE/2, h: TILE_SIZE/2});
+        }
       }
     }
   }
@@ -883,14 +888,15 @@ class Level {
 
   update() {
     // don't think we have these but hey just in case
-    for (let emitter of level.emitters) {
-      for (let i = 0; i < 5; ++i) {
+    for (let emitter of this.emitters) {
+      if (rand(1) < 0.001) {
         particles.spawn({
           x: emitter.x + rand(emitter.w),
           y: emitter.y + rand(emitter.h),
-          dx: rand(0.3, 3), dy: rand(0.3, 3),
-          r: rand(64, 92), g: rand(132, 194), b: rand(202, 255),
-          life: 840,
+          dx: rand(-3, 3), dy: rand(-3, 0),
+          r: 255, g: 255, b: 64,
+          life: 20,
+          gravity: 0.3,
         });
       }
     }
@@ -2700,6 +2706,7 @@ class GameState {
 
     smiley.update();
 
+    level.update();
     camera.update();
     particles.update();
     platforms.update();

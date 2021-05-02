@@ -52,6 +52,7 @@ let mouseReleased = makeMouse();
 
 let assets;
 
+let shader;
 let smiley;
 let level;
 let platforms;
@@ -2228,98 +2229,63 @@ class Inventory {
 };
 
 //------------------------------------------------------------------------------
+// Game states
 
-async function start() {
-  initGl();
-  initAudio();
+class GameState {
+  constructor() {
+    level = assets.factory.data;
 
-  await loadAssets();
+    smiley = new Smiley(assets.sprites.data.texture);
+    ui = new UI();
 
-  level = assets.factory.data;
+    platforms = new Platforms(assets.factoryTiles.data.texture);
+    pickups = new Pickups(assets.sprites.data.texture);
+    tossers = new Tossers(assets.sprites.data.texture);
+    counters = new Counters();
 
-  const shader = makeTextureShader();
-  font = makeFont();
-  smiley = new Smiley(assets.sprites.data.texture);
-  ui = new UI();
+    camera = new Camera();
+  }
 
-  platforms = new Platforms(assets.factoryTiles.data.texture);
-  pickups = new Pickups(assets.sprites.data.texture);
-  tossers = new Tossers(assets.sprites.data.texture);
-  counters = new Counters();
+  update() {
+    // Debug stuff
+    if (mousePressed.right) {
+      let {x, y} = ui.cursor.toWorldPos();
+      let tx = Math.floor(x / TILE_SIZE);
+      let ty = Math.floor(y / TILE_SIZE);
+      let segs = level.getSegs(tx, ty);
+      let msg = `pos: ${tx}, ${ty}\n`;
+      if (segs) {
+        for (let [name, seg] of Object.entries(segs)) {
+          if (seg) {
+            msg += `    ${name}: x0:${seg.x0} y0:${seg.y0} x1:${seg.x1} y1:${seg.y1}\n`;
+          }
+        }
+      }
+      console.log(msg);
+    }
 
-  document.onkeydown = onKeyDown;
-  document.onkeyup = onKeyUp;
-  canvas.onmousemove = onMouseEvent;
-  canvas.onmousedown = onMouseEvent;
-  canvas.onmouseup = onMouseEvent;
+    smiley.update();
 
-  camera = new Camera();
-  particles = new ParticleSystem();
+    camera.update();
+    particles.update();
+    platforms.update();
+    pickups.update();
+    tossers.update();
+    ui.update();
+  }
 
-  const updateMs = 16.6;
-  let lastTimestamp;
-  let updateRemainder = updateMs + 1;
-  function tick(timestamp) {
-    requestAnimationFrame(tick);
-
-    if (lastTimestamp === undefined) { lastTimestamp = timestamp; }
-    let elapsed = timestamp - lastTimestamp;
-    lastTimestamp = timestamp;
-
+  draw(dt) {
     let clearColor = gradientLerp(ui.clock.workdayFraction(), [
       // todo: light blue -> blue -> orange-red
-      {r: 0.2, g: 0.3, b: 1.0},
-      {r: 0.3, g: 0.8, b: 1.0},
-      {r: 0.4, g: 0.9, b: 1.0},
-      {r: 0.7, g: 0.3, b: 0.8},
-      {r: 0.5, g: 0.1, b: 0.5},
-      {r: 0.2, g: 0.1, b: 0.3},
+      {r : 0.2, g : 0.3, b : 1.0},
+      {r : 0.3, g : 0.8, b : 1.0},
+      {r : 0.4, g : 0.9, b : 1.0},
+      {r : 0.7, g : 0.3, b : 0.8},
+      {r : 0.5, g : 0.1, b : 0.5},
+      {r : 0.2, g : 0.1, b : 0.3},
     ]);
     gl.clearColor(clearColor.r, clearColor.g, clearColor.b, 1.0);
     gl.clear(gl.COLOR_BUFFER_BIT);
-
-    let timeScale = lerp(slowScale, 1.0, maxSlow);
-    updateRemainder += elapsed * timeScale;
-    let maxUpdates = 20;
-    while (updateRemainder > updateMs && maxUpdates > 0) {
-      updateRemainder -= updateMs;
-      maxUpdates--;
-      if (maxUpdates <= 0) {
-        // don't run in fast-forward for the forseeable future
-        updateRemainder = 0;
-      }
-
-      // Debug stuff
-      if (mousePressed.right) {
-        let {x, y} = ui.cursor.toWorldPos();
-        let tx = Math.floor(x / TILE_SIZE);
-        let ty = Math.floor(y / TILE_SIZE);
-        let segs = level.getSegs(tx, ty);
-        let msg = `pos: ${tx}, ${ty}\n`;
-        if (segs) {
-          for (let [name, seg] of Object.entries(segs)) {
-            if (seg) {
-              msg += `    ${name}: x0:${seg.x0} y0:${seg.y0} x1:${seg.x1} y1:${seg.y1}\n`;
-            }
-          }
-        }
-        console.log(msg);
-      }
-
-      updateKeys();
-      updateMouse();
-
-      smiley.update();
-
-      camera.update();
-      particles.update();
-      platforms.update();
-      pickups.update();
-      tossers.update();
-      ui.update();
-    }
-
-    let dt = 1 - updateRemainder / updateMs;
 
     camera.draw(dt);
 
@@ -2332,11 +2298,62 @@ async function start() {
     tossers.draw(shader, dt);
     counters.draw(shader, dt);
 
-    camMat = Mat3.makeTranslate(SCREEN_WIDTH/2, SCREEN_HEIGHT/2);
+    camMat = Mat3.makeTranslate(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2);
     particles.draw(shader, camera, dt);
 
     camMat = mat3Id;
     ui.draw(shader, dt);
+  }
+}
+
+async function start() {
+  initGl();
+  initAudio();
+
+  await loadAssets();
+
+  shader = makeTextureShader();
+  font = makeFont();
+
+  document.onkeydown = onKeyDown;
+  document.onkeyup = onKeyUp;
+  canvas.onmousemove = onMouseEvent;
+  canvas.onmousedown = onMouseEvent;
+  canvas.onmouseup = onMouseEvent;
+
+  state = new GameState();
+
+  particles = new ParticleSystem();
+
+  const updateMs = 16.6;
+  let lastTimestamp;
+  let updateRemainder = updateMs + 1;
+  function tick(timestamp) {
+    requestAnimationFrame(tick);
+
+    if (lastTimestamp === undefined) { lastTimestamp = timestamp; }
+    let elapsed = timestamp - lastTimestamp;
+    lastTimestamp = timestamp;
+
+    let timeScale = lerp(slowScale, 1.0, maxSlow);
+    updateRemainder += elapsed * timeScale;
+    let maxUpdates = 20;
+    while (updateRemainder > updateMs && maxUpdates > 0) {
+      updateRemainder -= updateMs;
+      maxUpdates--;
+      if (maxUpdates <= 0) {
+        // don't run in fast-forward for the forseeable future
+        updateRemainder = 0;
+      }
+
+      updateKeys();
+      updateMouse();
+
+      state.update();
+    }
+
+    let dt = 1 - updateRemainder / updateMs;
+    state.draw(dt);
   }
   requestAnimationFrame(tick);
 };

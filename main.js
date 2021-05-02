@@ -84,6 +84,14 @@ let score = {
   crate: 0,
 };
 
+let weekScores = {
+  carrot: 0,
+  tomato: 0,
+  chicken: 0,
+  soup: 0,
+  crate: 0,
+};
+
 
 const maxSlow = 0.33;
 const maxZoom = 2.0;
@@ -1543,21 +1551,7 @@ class Smiley {
     this.jumpHeight = 100;
     this.jumpTime = 30;
     this.jumpVel = -2 * this.jumpHeight / this.jumpTime;
-    this.isJumping = false;
-    this.isClimbing = false;
     this.gravity = 2 * this.jumpHeight / Math.pow(this.jumpTime, 2);
-    this.framesOffGround = 0;
-
-    this.x = level.startPos.x;
-    this.y = level.startPos.y;
-    this.lastX = this.x;
-    this.lastY = this.y;
-    this.dx = 0;
-    this.dy = 0;
-    this.ddx = 0;
-    this.ddy = this.gravity;
-    this.baseFrame = 10;
-    this.frame = 10;
 
     this.radius = 22;
     this.rect = Rect.makeCenterRadius(this.x, this.y, this.radius);
@@ -1573,6 +1567,24 @@ class Smiley {
 
     this.maxJump = -30;
     this.maxFall = 10;
+
+    this.reset();
+  }
+
+  reset() {
+    this.isJumping = false;
+    this.isClimbing = false;
+    this.framesOffGround = 0;
+    this.x = level.startPos.x;
+    this.y = level.startPos.y;
+    this.lastX = this.x;
+    this.lastY = this.y;
+    this.dx = 0;
+    this.dy = 0;
+    this.ddx = 0;
+    this.ddy = this.gravity;
+    this.baseFrame = 10;
+    this.frame = 10;
 
     this.currentTriggers = [];
   }
@@ -2011,6 +2023,12 @@ class Counters {
     }
   }
 
+  reset() {
+    for (let obj of this.objs) {
+      obj.count = 0;
+    }
+  }
+
   increment(kind) {
     for (let obj of this.objs) {
       if (obj.kind == kind) {
@@ -2419,6 +2437,12 @@ class Inventory {
     this.y = SCREEN_HEIGHT - TILE_SIZE;
   }
 
+  reset() {
+    for (let slot of this.slots) {
+      slot.count = 0;
+    }
+  }
+
   draw(shader, dt) {
     let x = this.x;
     let y = this.y;
@@ -2590,9 +2614,20 @@ class GameState {
   }
 
   start() {
+    // Reset daily scores
+    for (let name of Object.keys(score)) {
+      weekScores[name] += score[name];
+      score[name] = 0;
+    }
+
+    ui.inventory.reset();
+    counters.reset();
+
     fader.fadeIn(FADE_TIME, () => {
       ui.day.start(ui.clock.weekday);
     });
+
+    smiley.reset();
   }
 
   update() {
@@ -2733,10 +2768,13 @@ class EndDayState {
   }
 
   start() {
+    this.running = false;
+    this.t = 0;
     this.updateText(this.carrot, score.carrot.toString());
     this.updateText(this.tomato, score.tomato.toString());
     this.updateText(this.chicken, score.chicken.toString());
     this.updateText(this.soup, score.soup.toString());
+    this.update();
 
     fader.fadeIn(FADE_TIME, () => {
       this.running = true;
@@ -2749,14 +2787,11 @@ class EndDayState {
     this.t += 1/60;
 
     for (let obj of this.objs) {
-      if (this.t >= obj.startTime)  {
-        let tscale = (this.t - obj.startTime) / (obj.endTime - obj.startTime);
-        tscale = Math.min(tscale, 1);
-        let cubic = easeOutCubic(tscale);
+      let tscale = (this.t - obj.startTime) / (obj.endTime - obj.startTime);
+      tscale = clamp(0, tscale, 1);
+      let cubic = easeOutCubic(tscale);
 
-        obj.sprite.objMat.setTranslate(lerp(tscale, obj.startX, obj.endX),
-                                       obj.y);
-      }
+      obj.sprite.objMat.setTranslate(lerp(tscale, obj.startX, obj.endX), obj.y);
     }
 
     if (this.t < 3 && keyPressed.jump) {

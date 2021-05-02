@@ -13,8 +13,8 @@ const UPRIGHT_GIDS = [36, 56];
 const PICKUP_DATA = {
   // numbers correspond with sprite frame ids
   carrot: {kind: 'carrot', frame: 50, r: 255, g: 126, b: 0, sounds: ['carrot1', 'carrot2']},
-  tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36, sounds: []},
-  chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220, sounds: []},
+  tomato: {kind: 'tomato', frame: 51, r: 237, g: 28, b: 36, sounds: ['tomato1', 'tomato2']},
+  chicken: {kind: 'chicken', frame: 52, r: 220, g: 220, b: 220, sounds: ['chicken1', 'chicken2']},
   soup: {kind: 'soup', frame: 53, r: 220, g: 220, b: 220, sounds: []},
   badge: {kind: 'badge', frame: 54, r: 220, g: 220, b: 220, sounds: []},
 };
@@ -899,6 +899,10 @@ assets = {
   // sfx
   carrot1: {filename: 'sounds/carrot1.ogg', type: 'sfx', data: null},
   carrot2: {filename: 'sounds/carrot2.ogg', type: 'sfx', data: null},
+  tomato1: {filename: 'sounds/tomato1.ogg', type: 'sfx', data: null},
+  tomato2: {filename: 'sounds/tomato2.ogg', type: 'sfx', data: null},
+  chicken1: {filename: 'sounds/chicken1.ogg', type: 'sfx', data: null},
+  chicken2: {filename: 'sounds/chicken2.ogg', type: 'sfx', data: null},
 };
 
 function loadImage(asset) {

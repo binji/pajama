@@ -2667,9 +2667,16 @@ class GameState {
 
     camera = new Camera();
     particles = new ParticleSystem();
+
+    this.didEverStart = false;
   }
 
   start() {
+    if (!this.didEverStart) {
+      playMusic(assets.doots);
+      this.didEverStart = true;
+    }
+
     // Reset daily scores
     for (let name of Object.keys(score)) {
       weekScores[name] += score[name];

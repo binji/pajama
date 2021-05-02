@@ -62,7 +62,6 @@ let camMat;
 let ui;
 let tossers;
 let counters;
-let score = 0;
 
 const maxSlow = 0.33;
 const maxZoom = 2.0;
@@ -1696,7 +1695,6 @@ class Pickup {
       });
     }
     this.region.count--;
-    score++;
     const slot = ui.inventory.slotFor(this.frame);
     slot.count++;
   }
@@ -2028,7 +2026,6 @@ class UI {
 
   draw(shader, dt) {
     this.text.reset();
-    this.text.add(0, 0, `score: ${score}`, 2, 2);
     this.clock.addText(this.text);
     this.text.upload();
     this.text.draw(shader, dt);
@@ -2054,14 +2051,14 @@ class Toast {
   showMessage(message) {
     this.message = message;
     this.startX = this.destX = (SCREEN_WIDTH - message.length * 64) * 0.5;
-    this.startY = SCREEN_HEIGHT;
-    this.destY = SCREEN_HEIGHT - 64;
+    this.startY = -64;
+    this.destY = 0;
     this.t = 0;
   }
 
   hideMessage() {
     this.startY = this.y;
-    this.destY = SCREEN_HEIGHT;
+    this.destY = -64;
     this.t = 0;
   }
 
@@ -2119,7 +2116,8 @@ class Clock {
   }
 
   addText(text) {
-    text.add(0, 32, this.toString(), 2, 2);
+    let str = this.toString();
+    text.add(SCREEN_WIDTH - str.length * 32, SCREEN_HEIGHT - 32, str, 2, 2);
   }
 
   workdayFraction() {

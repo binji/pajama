@@ -337,6 +337,10 @@ class SpriteBatch {
   upload() {
     this.sprite.buffer.upload(gl.DYNAMIC_DRAW);
   }
+
+  draw(shader, dt) {
+    draw(this.sprite, shader)
+  }
 }
 
 class Text {
@@ -1703,6 +1707,7 @@ class UI {
     this.text = new Text(font);
     this.clock = new Clock();
     this.cursor = new Cursor();
+    this.inventory = new Inventory();
   }
 
   showMessage(message) {
@@ -1726,6 +1731,7 @@ class UI {
     this.text.draw(shader, dt);
     this.toast.draw(shader, dt);
     this.cursor.draw(shader, dt);
+    this.inventory.draw(shader, dt);
   }
 }
 
@@ -1841,6 +1847,58 @@ class Cursor {
     return camera.screenToWorld(this.x, this.y);
   }
 }
+
+//------------------------------------------------------------------------------
+class InventorySlot {
+  constructor(frame, count) {
+    this.frame = frame;
+    this.count = count;
+  }
+};
+
+class Inventory {
+  constructor() {
+    this.batch = new SpriteBatch(assets.sprites.data.texture);
+    this.text = new Text(font);
+
+    this.slots = [
+      new InventorySlot(50, 0),
+      new InventorySlot(51, 0),
+      new InventorySlot(52, 0),
+    ];
+
+    this.margin = 4;
+    this.x =
+        (SCREEN_WIDTH - this.slots.length * (TILE_SIZE + this.margin)) * 0.5;
+    this.y = SCREEN_HEIGHT - TILE_SIZE;
+  }
+
+  draw(shader, dt) {
+    let x = this.x;
+    let y = this.y;
+    let dx = TILE_SIZE + this.margin;
+
+    this.batch.reset();
+    this.text.reset();
+    for (let i = 0; i < this.slots.length; ++i) {
+      let slot = this.slots[i];
+      const boxFrame = 4;
+      this.batch.pushFrame(x, y, boxFrame);
+      this.batch.pushFrame(x, y, slot.frame);
+
+      this.text.add(x, y, (i + 1).toString());
+      // TODO: bold or different color?
+      this.text.add(x + TILE_SIZE - 32, y + TILE_SIZE - 32,
+                    (slot.count).toString(), 2, 2);
+      x += dx;
+    }
+
+    this.batch.upload();
+    this.text.upload();
+    this.batch.draw(shader, dt);
+    this.text.draw(shader, dt);
+  }
+};
 
 //------------------------------------------------------------------------------
 

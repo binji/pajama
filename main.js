@@ -2379,7 +2379,7 @@ class Clock {
     }
 
     // for testing end of day
-    let endDayHack = false;
+    let endDayHack = true;
     let workdayFrames = endDayHack ? 500 : this.workdayFrames;
 
     if (this.frames >= workdayFrames) {
@@ -2756,19 +2756,19 @@ class EndDayState {
 
     this.objs = [
       this.title,
-      this.makeTextObj('carrot', 0.5, 0.7, -512, (w - 7 * 32) * 0.5, 256),
+      this.makeTextObj('carrot', 0.5, 0.7, -512, (w - 7 * 32) * 0.5, 256, 'carrot'),
       this.makeSpriteObj(PICKUP_DATA.carrot.frame, 0.5, 0.7, -512,
                          w * 0.5 + 4 * 32, 272),
 
-      this.makeTextObj('tomato', 0.7, 0.9, -512, (w - 7 * 32) * 0.5, 320),
+      this.makeTextObj('tomato', 0.7, 0.9, -512, (w - 7 * 32) * 0.5, 320, 'tomato'),
       this.makeSpriteObj(PICKUP_DATA.tomato.frame, 0.7, 0.9, -512,
                          w * 0.5 + 4 * 32, 336),
 
-      this.makeTextObj('chicken', 0.9, 1.1, -512, (w - 9 * 32) * 0.5, 384),
+      this.makeTextObj('chicken', 0.9, 1.1, -512, (w - 9 * 32) * 0.5, 384, 'chicken'),
       this.makeSpriteObj(PICKUP_DATA.chicken.frame, 0.9, 1.1, -512,
                          w * 0.5 + 4 * 32, 400),
 
-      this.makeTextObj('soup', 1.1, 1.3, -512, (w - 4 * 32) * 0.5, 448),
+      this.makeTextObj('soup', 1.1, 1.3, -512, (w - 4 * 32) * 0.5, 448, 'soup'),
       this.makeSpriteObj(PICKUP_DATA.soup.frame, 1.1, 1.3, -512,
                          w * 0.5 + 4 * 32, 464),
 
@@ -2827,13 +2827,13 @@ class EndDayState {
   }
 
 
-  makeTextObj(message, startTime, endTime, startX, endX, y) {
+  makeTextObj(message, startTime, endTime, startX, endX, y, sound) {
     let text = new Text(font);
     text.set(0, 0, message, 2, 2);
 
     text.sprite.objMat.setTranslate(startX, y);
 
-    return {text, sprite: text.sprite, message, startTime, endTime, startX, endX, y};
+    return {text, sprite: text.sprite, message, startTime, endTime, startX, endX, y, sound};
   }
 
   updateText(object, message) {
@@ -2882,9 +2882,16 @@ class EndDayState {
   update(force = false) {
     if (!this.running && !force) return;
 
-    this.t += 1/60;
+    let dt = 1/60;
+    this.t += dt;
 
     for (let obj of this.objs) {
+      if (this.t - dt < obj.startTime && this.t >= obj.startTime) {
+        if (obj.sound) {
+          playSound(assets[randElem(PICKUP_DATA[obj.sound].sounds)]);
+        }
+      }
+
       let tscale = (this.t - obj.startTime) / (obj.endTime - obj.startTime);
       tscale = clamp(0, tscale, 1);
       let cubic = easeOutCubic(tscale);
